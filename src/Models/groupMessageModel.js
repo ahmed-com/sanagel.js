@@ -1,30 +1,28 @@
 const io = require('../utils/socket').getIO();
 const nsp = io.of('/groupMessage');
 const db = require('../utils/db').getDb();
-// const User = require('./user');
+// const User = require('./userModel');
 
 const roomSubscriber = db.collection('groupMessageRSC');
 const recordRoom = db.collection('groupMessageERC');
 const recordSubscriber = db.collection('groupMessageESC');
 
 class GroupMessage{
-    constructor(id){//the id represents the room
+    constructor(id){
         this.id = id;
     }
 
     subscribe(userId,socketId,callback){
-        //gets the socket to join this room
+        
         nsp.connected[socketId].join(this.id);
 
         //MAYBE inform all subscribers about the subscription with emit ?
         // nsp.to(this.id).emit('subscribtion',new User(userId));// be careful of what you emit
 
-        //adds the userId and the room id "this.id" to the RSC
         roomSubscriber.insertOne({room : this.id, userId},callback);
     }
 
     static join(userId,socketId){
-        //loops through all the rooms the user subscribed to and joins them
         //MAYBE inform all subscribers in every room about the online status with emit ?
         const rooms = GroupMessage.getRoomIds(userId);
         rooms.forEach(room => {
@@ -34,45 +32,38 @@ class GroupMessage{
     }
 
     // this function is only about the offline behavior
-    // static leave(userId,socketId){
-    //     const rooms = GroupMessage.getRoomIds(userId);
-    //     rooms.forEach(room => {
-    //         nsp.connected[socketId].leave(room);
-    //         // nsp.to(room).emit('offline',new User(userId));// be careful of what you emit
-    //     });
-    // }
+    static leave(userId,socketId){
+        const rooms = GroupMessage.getRoomIds(userId);
+        rooms.forEach(room => {
+            nsp.connected[socketId].leave(room);
+            // nsp.to(room).emit('offline',new User(userId));// be careful of what you emit
+        });
+    }
 
-    unsubscribe(userId,socketId,callback){
-        //gets the socket to leave this room
+    unsubscribe(userId,socketId,callback){        
         nsp.connected[socketId].leave(this.id);
-        //removes the userId from the RSC 
         roomSubscriber.deleteOne({room:this.id,userId},callback);
         
         //MAYBE inform all subscribers about the unsubscription with emit ?
         // nsp.to(this.id).emit('unsubscribtion',new User(userId));// be careful of what you emit
     }
 
-    //this is different from unsubscribe, this is force remove. so that I don't assume the subscribers sends its socketId.
     removeSubscriber(userId,callback){
-        //removes the userId from the RSC
         roomSubscriber.deleteOne({room:this.id,userId},callback);
-        //disconnect from all subscribers of this room and inform the client to attemp a reconnect
+        //disconnect from all subscribers of this room and inform the client to attempt a reconnect
     }
 
     getSubscribers(callback){
-        //gets all users ids from the RSC
         const subscribers = roomSubscriber.find({room:this.id}).toArray();
         callback(subscribers);
     }
 
-    // this function is like getRooms but for internal use is for internal use
     static getRoomIds(userId,callback){
         const rooms = roomSubscriber.find({userId}).toArray();
         callback(rooms);
     }
 
     static getRooms(userId,callback){
-        //gets all rooms from the RSC
         const rooms = roomSubscriber.find({userId}).toArray().map(room => new GroupMessage(room));
         callback(rooms);
     }
