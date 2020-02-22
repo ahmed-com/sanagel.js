@@ -8,9 +8,30 @@ const subscribtions = db.define('groupMessageRSC',{
     user : Sequalize.INTEGER
 });
 const records = db.define('groupMessageERC',{
-    
+    id : {
+        type : Sequalize.INTEGER,        
+        autoIncrement : true,
+        allowNull: false,
+        primaryKey : true
+    },
+    record : {
+        type : Sequalize.JSON,
+        allowNull : false
+    },
+    room : {
+        type : Sequalize.STRING,
+        allowNull : false
+    }
 });
-const recordSubscriber = db.define('groupMessageESC');
+const recordSubscriber = db.define('groupMessageESC',{
+    recordId : {
+        type : Sequalize.INTEGER        
+    },
+    userId : {
+        type : Sequalize.INTEGER
+    },
+    relation : Sequalize.STRING
+});
 
 class GroupMessage{
     constructor(id){
@@ -24,7 +45,7 @@ class GroupMessage{
         //MAYBE inform all subscribers about the subscription with emit ?
         // nsp.to(this.id).emit('subscribtion',new User(userId));// be careful of what you emit
 
-        roomSubscriber.insertOne({room : this.id, userId},callback);
+        subscribtions.insertOne({room : this.id, userId},callback);
     }
 
     static join(userId,socketId){
@@ -47,15 +68,14 @@ class GroupMessage{
 
     unsubscribe(userId,socketId,callback){        
         nsp.connected[socketId].leave(this.id);
-        roomSubscriber.deleteOne({room:this.id,userId},callback);
+        subscribtions.deleteOne({room:this.id,userId},callback);
         
         //MAYBE inform all subscribers about the unsubscription with emit ?
         // nsp.to(this.id).emit('unsubscribtion',new User(userId));// be careful of what you emit
     }
 
     removeSubscriber(userId,callback){
-        roomSubscriber.deleteOne({room:this.id,userId},callback);
-        //disconnect from all subscribers of this room and inform the client to attempt a reconnect
+        subscribtions.deleteOne({room:this.id,userId},callback);
         nsp.in(this.id).clients((err,clients)=>{
             clients.forEach(socketId=>{
                 nsp.connected[socketId].leave(this.id);
@@ -65,17 +85,17 @@ class GroupMessage{
     }
 
     getSubscribers(callback){
-        const subscribers = roomSubscriber.find({room:this.id}).toArray();
+        const subscribers = subscribtions.find({room:this.id}).toArray();
         callback(subscribers);
     }
 
     static getRoomIds(userId,callback){
-        const rooms = roomSubscriber.find({userId}).toArray();
+        const rooms = subscribtions.find({userId}).toArray();
         callback(rooms);
     }
 
     static getRooms(userId,callback){
-        const rooms = roomSubscriber.find({userId}).toArray().map(room => new GroupMessage(room));
+        const rooms = subscribtions.find({userId}).toArray().map(room => new GroupMessage(room));
         callback(rooms);
     }
 
