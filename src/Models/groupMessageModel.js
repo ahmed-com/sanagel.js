@@ -5,7 +5,7 @@ const db = require('../utils/db');
 
 const subscribtions = db.define('groupMessageRSC',{
     room : Sequalize.STRING,
-    user : Sequalize.INTEGER
+    userId : Sequalize.INTEGER
 });
 const records = db.define('groupMessageERC',{
     id : {
@@ -40,12 +40,14 @@ class GroupMessage{
 
     subscribe(userId,socketId,callback){
         
-        nsp.connected[socketId].join(this.id);
+        // nsp.connected[socketId].join(this.id);
 
         //MAYBE inform all subscribers about the subscription with emit ?
         // nsp.to(this.id).emit('subscribtion',new User(userId));// be careful of what you emit
 
-        subscribtions.insertOne({room : this.id, userId},callback);
+        subscribtions.create({room: this.id, userId : userId}).then(callback).catch(err=>{
+            console.log(err);
+        });
     }
 
     static join(userId,socketId){

@@ -6,7 +6,7 @@ const bodyParser = require('body-parser');
 const db = require('./utils/db');
 
 const path = require('path');
-const publicPath = path.join(__dirname,'/../client');
+const publicPath = path.join(__dirname,'/../../client');
 const port =process.env.PORT || 3000;
 
 const groupMessageRouter = require('./routes/groupMessageRouter');

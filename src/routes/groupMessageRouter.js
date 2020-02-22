@@ -1,24 +1,24 @@
 const router = require('express').Router();
-const groupMessageController = require('../Controllers/groupMessageController');
+const groupMessage = require('../Controllers/groupMessageController');
 
-router.get('/record/',groupMessageController.getAllRecords);
+router.get('/record/',groupMessage.getAllRecords);
 
-router.get('/record/:recordId',groupMessageController.getRecord);
+router.get('/record/:recordId',groupMessage.getRecord);
 
-router.post('/subscribe',groupMessageController.subscribe);
+router.post('/subscribe',groupMessage.subscribe);
 
-router.post('/unsubscribe',groupMessageController.unsubscribe);
+router.post('/unsubscribe',groupMessage.unsubscribe);
 
-router.get('/subscribers',groupMessageController.getSubscribers);
+router.get('/subscribers',groupMessage.getSubscribers);
 
-router.put('/record/',groupMessageController.updateRecord);
+router.put('/record/',groupMessage.updateRecord);
 
-router.delete('/record/',groupMessageController.deleteRecord);
+router.delete('/record/',groupMessage.deleteRecord);
 
-router.post('/record/',groupMessageController.creatRecord);
+router.post('/record/',groupMessage.creatRecord);
 
-router.get('/rooms/',groupMessageController.getRooms);
+router.get('/rooms/',groupMessage.getRooms);
 
-router.get('/record/status/:recordId',groupMessageController.getRecordStatus);
+router.get('/record/status/:recordId',groupMessage.getRecordStatus);
 
 module.exports = router;

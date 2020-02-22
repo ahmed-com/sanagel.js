@@ -1,7 +1,13 @@
-const groupMessageModel = require('../Models/groupMessageModel');
+const GroupMessage = require('../Models/groupMessageModel');
 
 exports.subscribe = (req,res,next)=>{
-    
+    const room = req.body.room;
+    const userId = req.body.userId;
+    const socketId = req.body.socketId;
+    const groupMessage = new GroupMessage(room);
+    groupMessage.subscribe(userId,socketId,room,()=>{
+        res.send('succeeded');
+    })
 }
 
 exports.join = (req,res,next)=>{
