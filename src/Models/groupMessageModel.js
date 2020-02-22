@@ -1,11 +1,16 @@
 const io = require('../utils/socket').getIO();
 const nsp = io.of('/groupMessage');
-const db = require('../utils/db').getDb();
-// const User = require('./userModel');
+const Sequalize = require('sequelize');
+const db = require('../utils/db');
 
-const roomSubscriber = db.collection('groupMessageRSC');
-const recordRoom = db.collection('groupMessageERC');
-const recordSubscriber = db.collection('groupMessageESC');
+const subscribtions = db.define('groupMessageRSC',{
+    room : Sequalize.STRING,
+    user : Sequalize.INTEGER
+});
+const records = db.define('groupMessageERC',{
+    
+});
+const recordSubscriber = db.define('groupMessageESC');
 
 class GroupMessage{
     constructor(id){
@@ -51,6 +56,12 @@ class GroupMessage{
     removeSubscriber(userId,callback){
         roomSubscriber.deleteOne({room:this.id,userId},callback);
         //disconnect from all subscribers of this room and inform the client to attempt a reconnect
+        nsp.in(this.id).clients((err,clients)=>{
+            clients.forEach(socketId=>{
+                nsp.connected[socketId].leave(this.id);
+                nsp.connected[socketId].emit('removed',true);
+            })
+        });
     }
 
     getSubscribers(callback){
