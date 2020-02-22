@@ -3,6 +3,7 @@ const app = express();
 const server = require('http').Server(app);
 const io = require('./utils/socket').init(server);
 const bodyParser = require('body-parser');
+const db = require('./utils/db');
 
 const path = require('path');
 const publicPath = path.join(__dirname,'/../client');
@@ -22,12 +23,11 @@ app.use((req, res, next) => {
 
 app.use('/groupMessage',groupMessageRouter);
 
-// mongoose.connect('mongodb+srv://Ahmed007:nzRWwk8LWejz81le@cluster0-immln.mongodb.net/ANS?retryWrites=true&w=majority')
-// .then(result=>{
+db.sync().then(result=>{
     server.listen(port,()=>{
-        console.log(`server is up at port ${port}`)
-    });
-// })
-// .catch(err=>{
-//     console.log(err)
-// })
+    console.log(`server is up at port ${port}`)
+});
+})
+.catch(err=>{
+    console.log(err);
+})
