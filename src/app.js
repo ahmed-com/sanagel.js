@@ -4,6 +4,9 @@ const server = require('http').Server(app);
 const io = require('./utils/socket').init(server);
 const bodyParser = require('body-parser');
 const db = require('./utils/db');
+const redis = require('./utils/redis');
+
+redis.init();
 
 const path = require('path');
 const publicPath = path.join(__dirname,'/../../client');
