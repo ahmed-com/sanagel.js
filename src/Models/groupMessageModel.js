@@ -56,7 +56,7 @@ class GroupMessage{
 
     getSubscribers(callback){
         const room = this.id;
-        subscribtions.findAll({where : {room}}).then(subscribtions=>subscribtions.map(subscribtion => new User(subscribtion.userId)))
+        subscribtions.findAll({where : {room},include : [User]})
         .then(callback(subscribers))
         .catch(err=>{
             console.log(err);

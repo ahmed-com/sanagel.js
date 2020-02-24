@@ -5,6 +5,7 @@ const io = require('./utils/socket').init(server);
 const bodyParser = require('body-parser');
 const db = require('./utils/db');
 const redis = require('./utils/redis');
+const User = require('./Models/user');
 
 redis.init();
 
@@ -26,11 +27,11 @@ app.use((req, res, next) => {
 
 app.use('/groupMessage',groupMessageRouter);
 
-db.sync({force : true})
+db.sync()
 .then(result=>{
     server.listen(port,()=>{
-    console.log(`server is up at port ${port}`)
-});
+        console.log(`server is up at port ${port}`);
+    });
 })
 .catch(err=>{
     console.log(err);
