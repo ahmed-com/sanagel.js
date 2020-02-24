@@ -108,26 +108,36 @@ exports.getSubscribers = (req,res,next)=>{
     });
 }
 
-exports.getRecordStatus = (req,res,next)=>{
-    
-}
-
 exports.creatRecord = (req,res,next)=>{
+    const room = room.body.room;
+    const userId = req.body.userId;
     
 }
 
 exports.getRecord = (req,res,next)=>{
-    
-}
-
-exports.getAllRecords = (req,res,next)=>{
+    const room = room.body.room;
+    const userId = req.body.userId;
     
 }
 
 exports.updateRecord = (req,res,next)=>{
+    const room = room.body.room;
+    const userId = req.body.userId;
     
 }
 
 exports.deleteRecord = (req,res,next)=>{
+    const room = room.body.room;
+    const userId = req.body.userId;
+    
+}
+
+exports.getAllRecords = (req,res,next)=>{
+    const room = room.body.room;
+    const userId = req.body.userId;
+    
+}
+
+exports.getRecordStatus = (req,res,next)=>{
     
 }
