@@ -1,5 +1,4 @@
-const io = require('../utils/socket').getIO();
-const nsp = io.of('/groupMessage');
+// const User = require('./user');
 const Sequalize = require('sequelize');
 const db = require('../utils/db');
 
@@ -38,67 +37,36 @@ class GroupMessage{
         this.id = id;
     }
 
-    subscribe(userId,socketId,callback){
-        
-        // nsp.connected[socketId].join(this.id);
-
-        //MAYBE inform all subscribers about the subscription with emit ?
-        // nsp.to(this.id).emit('subscribtion',new User(userId));// be careful of what you emit
-
-        subscribtions.create({room: this.id, userId : userId}).then(callback).catch(err=>{
+    subscribe(userId,callback){  
+        const room = this.id;              
+        subscribtions.create({room, userId }).then(callback).catch(err=>{
+            console.log(err);
+        });
+    }
+    
+    unsubscribe(userId,callback){      
+        const room = this.id;  
+        subscribtions.destroy({where : {userId ,room}}).then(callback).catch(err=>{
             console.log(err);
         });
     }
 
-    static join(userId,socketId){
-        //MAYBE inform all subscribers in every room about the online status with emit ?
-        const rooms = GroupMessage.getRoomIds(userId);
-        rooms.forEach(room => {
-            nsp.connected[socketId].join(room);
-            // nsp.to(room).emit('online',new User(userId));// be careful of what you emit
-        });
-    }
-
-    // this function is only about the offline behavior
-    static leave(userId,socketId){
-        const rooms = GroupMessage.getRoomIds(userId);
-        rooms.forEach(room => {
-            nsp.connected[socketId].leave(room);
-            // nsp.to(room).emit('offline',new User(userId));// be careful of what you emit
-        });
-    }
-
-    unsubscribe(userId,socketId,callback){        
-        nsp.connected[socketId].leave(this.id);
-        subscribtions.deleteOne({room:this.id,userId},callback);
-        
-        //MAYBE inform all subscribers about the unsubscription with emit ?
-        // nsp.to(this.id).emit('unsubscribtion',new User(userId));// be careful of what you emit
-    }
-
-    removeSubscriber(userId,callback){
-        subscribtions.deleteOne({room:this.id,userId},callback);
-        nsp.in(this.id).clients((err,clients)=>{
-            clients.forEach(socketId=>{
-                nsp.connected[socketId].leave(this.id);
-                nsp.connected[socketId].emit('removed',true);
-            })
-        });
-    }
-
-    getSubscribers(callback){
-        const subscribers = subscribtions.find({room:this.id}).toArray();
-        callback(subscribers);
-    }
-
-    static getRoomIds(userId,callback){
-        const rooms = subscribtions.find({userId}).toArray();
-        callback(rooms);
-    }
+    // getSubscribers(callback){
+    //     const room = this.id;
+    //     subscribtions.findAll({where : {room}}).then(subscribtions=>subscribtions.map(subscribtion => new User(subscribtion.userId)))
+    //     .then(callback(subscribers))
+    //     .catch(err=>{
+    //         console.log(err);
+    //     });
+    // }
 
     static getRooms(userId,callback){
-        const rooms = subscribtions.find({userId}).toArray().map(room => new GroupMessage(room));
-        callback(rooms);
+        const rooms = subscribtions.findAll({where : {userId}})
+        .then(subscribtions=> subscribtions.map(subscribtion => new GroupMessage(subscribtion.room)))
+        .then(callback(rooms))
+        .catch(err=>{
+            console.log(err);
+        });
     }
 
     static getRecordStatus(userId,recordId,callback){

@@ -6,4 +6,4 @@ exports.init = (options)=>{
     redisClient = redis.createClient(options);
 }
 
-exports.redisClient = redisClient;
+exports.getClient = ()=> redisClient;
