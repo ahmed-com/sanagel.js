@@ -1,10 +1,9 @@
-// const User = require('./user');
+const User = require('./user');
 const Sequalize = require('sequelize');
 const db = require('../utils/db');
 
 const subscribtions = db.define('groupMessageRSC',{
-    room : Sequalize.STRING,
-    userId : Sequalize.INTEGER
+    room : Sequalize.STRING
 });
 const records = db.define('groupMessageERC',{
     id : {
@@ -23,17 +22,21 @@ const records = db.define('groupMessageERC',{
     }
 });
 const recordSubscriber = db.define('groupMessageESC',{
-    recordId : {
-        type : Sequalize.INTEGER        
-    },
-    userId : {
-        type : Sequalize.INTEGER
-    },
     relation : Sequalize.STRING
 });
 
+User.hasMany(subscribtions);
+records.hasMany(recordSubscriber,{foreignKey: 'recordId'});
+User.hasMany(recordSubscriber);
+
 class GroupMessage{
     constructor(id){
+        /**
+         * consider the following later :-
+         *      this = groupMessageIO.to(roomId);
+         *      this.id = roomId;
+         * then everthing will just work the same as it does the only difference is when you start emitting from the controller you * * * will call the emit method on the model obj.
+         */
         this.id = id;
     }
 
@@ -51,14 +54,14 @@ class GroupMessage{
         });
     }
 
-    // getSubscribers(callback){
-    //     const room = this.id;
-    //     subscribtions.findAll({where : {room}}).then(subscribtions=>subscribtions.map(subscribtion => new User(subscribtion.userId)))
-    //     .then(callback(subscribers))
-    //     .catch(err=>{
-    //         console.log(err);
-    //     });
-    // }
+    getSubscribers(callback){
+        const room = this.id;
+        subscribtions.findAll({where : {room}}).then(subscribtions=>subscribtions.map(subscribtion => new User(subscribtion.userId)))
+        .then(callback(subscribers))
+        .catch(err=>{
+            console.log(err);
+        });
+    }
 
     static getRooms(userId,callback){
         const rooms = subscribtions.findAll({where : {userId}})

@@ -100,7 +100,6 @@ exports.remove = (req,res,next)=>{
     });
 }
 
-// need to implement the user model first
 exports.getSubscribers = (req,res,next)=>{
     const room = req.body.room;
     const groupMessage = new GroupMessage(room);

@@ -26,7 +26,8 @@ app.use((req, res, next) => {
 
 app.use('/groupMessage',groupMessageRouter);
 
-db.sync().then(result=>{
+db.sync({force : true})
+.then(result=>{
     server.listen(port,()=>{
     console.log(`server is up at port ${port}`)
 });
