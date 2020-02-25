@@ -90,10 +90,15 @@ class GroupMessage{
 
     
 
-    createRecord(record,callback){
-        //creates a record in the ERC
-        //adds a status in the ESC
-        //informs the subscribers about the record
+    createRecord(userId,record,callback){
+        const room = this.id;
+        records.create({record,room}).then(record=>{
+            return recordSubscriber.create({recordId : record.id,userId,relation : 'owner'});
+        })
+        .then(callback)
+        .catch(err=>{
+            console.log(err);
+        });
     }
 
     getRecord(recordId,callback){

@@ -110,13 +110,17 @@ exports.getSubscribers = (req,res,next)=>{
 
 exports.creatRecord = (req,res,next)=>{
     const room = room.body.room;
-    const userId = req.body.userId;
-    
+    const userId = req.body.userId;  
+    const record = req.body.record;  
+    const groupMessage = new GroupMessage(room);
+    groupMessage.createRecord(userId,record,()=>{
+        groupMessageIO.to(room).emit('recordCreated',record);
+    });
 }
 
 exports.getRecord = (req,res,next)=>{
     const room = room.body.room;
-    const userId = req.body.userId;
+    const userId = req.body.userId;    
     
 }
 
