@@ -1,4 +1,4 @@
-// const User = require('../Models/user');
+const User = require('../Models/user');
 const GroupMessage = require('../Models/groupMessageModel');
 const io = require('../utils/socket').getIO();
 const groupMessageIO = io.of('/groupMessage');
@@ -8,7 +8,8 @@ exports.subscribe = (req,res,next)=>{
     const room = req.body.room;
     const userId = req.body.userId;
     const groupMessage = new GroupMessage(room);
-    groupMessage.subscribe(userId,()=>{        
+    groupMessage.subscribe(userId)
+    .then(()=>{        
         client.hget('groupMessage',userId,(err,socketId)=>{
             if(!err){
                 groupMessageIO.connected[socketId].join(room);
@@ -23,42 +24,61 @@ exports.subscribe = (req,res,next)=>{
             }
         });        
     })
+    .catch(err=>{
+        console.log(err);
+        res.status(500).json({
+            message : "UNEXPECTED ERROR"
+        });
+    });
 }
 
 exports.join = (req,res,next)=>{
     const userId = req.body.userId;
     const socketId = req.body.socketId;
     client.hset('groupMessage',userId,socketId);
-    GroupMessage.getRooms(userId,rooms=>{
+    GroupMessage.getRooms(userId)
+    .then(rooms=>{
         rooms.forEach(room => {
-            groupMessageIO.connected[socketId].join(room);
+            groupMessageIO.connected[socketId].join(room.id);
             // groupMessageIO.to(room).emit('online',new User(userId));// be careful of what you emit
         });
         res.status(200).json({
             message : 'Joined successfully'        
+        });
+    })
+    .catch(err=>{
+        console.log(err);
+        res.status(500).json({
+            message : "UNEXPECTED ERROR"
         });
     });
 }
 
 exports.leave = (req,res,next)=>{
     const userId = req.body.userId;
-    client.hget('groupMessage',userId,(err,socketId)=>{
-        if(!err){
-            groupMessageIO.connected[socketId].leave(room);            
-            GroupMessage.getRooms(userId,rooms=>{
+    GroupMessage.getRooms(userId)
+    .then(rooms=>{
+        client.hget('groupMessage',userId,(err,socketId)=>{
+            if(!err){           
                 rooms.forEach(room => {
-                    groupMessageIO.connected[socketId].leave(room);
+                    groupMessageIO.connected[socketId].leave(room.id);
                     // groupMessageIO.to(room).emit('offline',new User(userId));// be careful of what you emit
                 });
                 res.status(200).json({
                     message : 'Left successfully'        
                 });
-            });
-        }else{
-            res.status(500).json({
-                message : 'Something went wrong'
-            });
-        }
+            }else{
+                res.status(500).json({
+                    message : 'Something went wrong'
+                });
+            }
+        });
+    })
+    .catch(err=>{
+        console.log(err);
+        res.status(500).json({
+            message : "UNEXPECTED ERROR"
+        });
     });
 }
 
@@ -66,7 +86,8 @@ exports.unsubscribe = (req,res,next)=>{
     const room = req.body.room;
     const userId = req.body.userId;
     const groupMessage = new GroupMessage(room);
-    groupMessage.unsubscribe(userId,()=>{
+    groupMessage.unsubscribe(userId)
+    .then(()=>{
         client.hget('groupMessage',userId,(err,socketId)=>{
             if(!err){
                 groupMessageIO.connected[socketId].leave(room);
@@ -80,6 +101,12 @@ exports.unsubscribe = (req,res,next)=>{
                 });
             }
         }); 
+    })
+    .catch(err=>{
+        console.log(err);
+        res.status(500).json({
+            message : "UNEXPECTED ERROR"
+        });
     });
 }
 
@@ -87,7 +114,8 @@ exports.remove = (req,res,next)=>{
     const room = req.body.room;
     const removedId = req.body.removedId;
     const groupMessage = new GroupMessage(room);
-    groupMessage.unsubscribe(removedId,()=>{
+    groupMessage.unsubscribe(removedId)
+    .then(()=>{
         client.hget('groupMessage',removedId,(err,socketId)=>{
             if(!err){
                 groupMessageIO.connected[socketId].leave(room);
@@ -97,14 +125,27 @@ exports.remove = (req,res,next)=>{
                 message : 'Removed successfuly'
             });
         }); 
+    })
+    .catch(err=>{
+        console.log(err);
+        res.status(500).json({
+            message : "UNEXPECTED ERROR"
+        });
     });
 }
 
 exports.getSubscribers = (req,res,next)=>{
     const room = req.body.room;
     const groupMessage = new GroupMessage(room);
-    groupMessage.getSubscribers(subscribers=>{
+    groupMessage.getSubscribers()
+    .then(subscribers=>{
         res.status(200).json(subscribers);//CAUTION - WARNING - BE CAREFUL
+    })
+    .catch(err=>{
+        console.log(err);
+        res.status(500).json({
+            message : "UNEXPECTED ERROR"
+        });
     });
 }
 
