@@ -150,7 +150,7 @@ exports.getSubscribers = (req,res,next)=>{
 }
 
 exports.creatRecord = (req,res,next)=>{
-    const room = room.body.room;
+    const room = req.body.room;
     const userId = req.body.userId;  
     const record = req.body.record;  
     const groupMessage = new GroupMessage(room);
@@ -174,6 +174,12 @@ exports.creatRecord = (req,res,next)=>{
         });
         return GroupMessage.updateRecordStatus(userId,record.id,'owner');
     })
+    .then(()=>{
+        res.status(201).json({
+            message : 'Record created successfully',
+            record : record
+        });
+    })
     .catch(err=>{
         console.log(err);
         res.status(500).json({
@@ -183,29 +189,108 @@ exports.creatRecord = (req,res,next)=>{
 }
 
 exports.getRecord = (req,res,next)=>{
-    const room = room.body.room;
-    const userId = req.body.userId;    
-    
+    const room = req.body.room;
+    const recordId = req.body.recordId;
+    const userId = req.body.userId;
+    const groupMessage = new GroupMessage(room);
+    groupMessage.getRecord(recordId)
+    .then(result=>{
+        res.status(200).json({
+            message : 'Record requested',
+            ...result/* CAUTION - WARNING - BE CAREFUL */
+        });
+        if(result.userId != userId){
+            GroupMessage.updateRecordStatus(userId,recordId,'seen');
+        }
+    })
+    .catch(err=>{
+        console.log(err);
+        res.status(500).json({
+            message : "UNEXPECTED ERROR"
+        });
+    });
 }
 
 exports.updateRecord = (req,res,next)=>{
-    const room = room.body.room;
+    const room = req.body.room;
+    const record = req.body.record;
     const userId = req.body.userId;
-    
+    const groupMessage = new GroupMessage(room);
+    groupMessage.getRecord(record.id)
+    .then(result=>{
+        if(result.userId != userId){
+            res.status(403).json({
+                message : 'Unauthorised Action'
+            });            
+        }else{
+            GroupMessage.updateRecord(record)
+            .then(()=>{
+                groupMessageIO.to(room).emit('recordUpdated',record);
+                res.status(202).json({
+                    message : 'Updated successfully'
+                })
+            })
+        }        
+    })
+    .catch(err=>{
+        console.log(err);
+        res.status(500).json({
+            message : "UNEXPECTED ERROR"
+        });
+    });
 }
 
 exports.deleteRecord = (req,res,next)=>{
-    const room = room.body.room;
+    const room = req.body.room;
+    const recordId = req.body.recordId;
     const userId = req.body.userId;
-    
+    const groupMessage = new GroupMessage(room);
+    groupMessage.getRecord(recordId)
+    .then(result=>{
+        if(result.userId != userId){
+            res.status(403).json({
+                message : 'Unauthorised Action'
+            });
+            return;
+        }else{
+            GroupMessage.deleteRecord(recordId)
+            .then(()=>{
+                groupMessageIO.to(room).emit('recordDeleted',recordId);
+                res.status(202).json({
+                    message : 'Deleted successfully'
+                })
+            })
+        }        
+    })
+    .catch(err=>{
+        console.log(err);
+        res.status(500).json({
+            message : "UNEXPECTED ERROR"
+        });
+    });
 }
 
 exports.getAllRecords = (req,res,next)=>{
-    const room = room.body.room;
+    const room = req.body.room;
     const userId = req.body.userId;
-    
-}
-
-exports.getRecordStatus = (req,res,next)=>{
-    
+    const groupMessage = new GroupMessage(room);
+    groupMessage.getAllRecords()
+    .then(results=>{
+        res.status(200).json({
+            message : 'Records requested',
+            ...results/* CAUTION - WARNING - BE CAREFUL */
+        });
+        results.forEach(result=>{
+            if(result.userId != userId){
+                GroupMessage.updateRecordStatus(userId,recordId,'seen');
+            }
+        });
+        groupMessageIO.to(room).emit('seen',userId);
+    })
+    .catch(err=>{
+        console.log(err);
+        res.status(500).json({
+            message : "UNEXPECTED ERROR"
+        });
+    });
 }

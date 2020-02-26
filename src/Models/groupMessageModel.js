@@ -59,11 +59,7 @@ class GroupMessage{
         return subscribtions.findAll({where : {userId}})
         .then(subscribtions=> subscribtions.map(subscribtion => new GroupMessage(subscribtion.room)));        
     }
-
-    static getRecordStatus(userId,recordId){
-        //gets the record status from the ESC
-    }
-
+    
     static updateRecordStatus(userId,recordId,status){
         return recordSubscriber.update({relation : status},{where : {userId,recordId}});
     }
@@ -72,33 +68,25 @@ class GroupMessage{
         return recordSubscriber.create({recordId ,userId,relation : status});
     }
 
-    static deleteRecordStatus(userId,recordId){
-        //deletes a record status in the ESC
-    }
-
-    
-
-    createRecord(userId,record,callback){
+    createRecord(record){
         const room = this.id;
         return records.create({record,room});
     }
 
-    getRecord(recordId,callback){
-        //gets a record from the ERC 
-        //updates the status in the ESC
-        //maybe informs the subscribers about the change of status
+    getRecord(recordId){
+        return recordSubscriber.findOne({where : {recordId , relation : 'owner'},include : [User , records]});
     }
 
-    getAllRecords(callback){
-        //gets all records from the ERC
+    getAllRecords(){
+        return records.findAll({where : {relation : 'owner'} , include : [User , records]});
     }
 
-    updateRecord(recordId,callback){
-        //updates a record in the ERC and updates the status in the ESC
+    updateRecord(record){
+        return records.update(record,{where : {id : record.id}});
     }
 
-    deleteRecord(recordId,callback){
-        //deletes a record in the ERC and deletes all of the records in the ESC
+    deleteRecord(recordId){
+        return records.destroy({where : {id : recordId}});
     }
 }
 
