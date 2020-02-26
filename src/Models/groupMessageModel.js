@@ -60,19 +60,19 @@ class GroupMessage{
         .then(subscribtions=> subscribtions.map(subscribtion => new GroupMessage(subscribtion.room)));        
     }
 
-    static getRecordStatus(userId,recordId,callback){
+    static getRecordStatus(userId,recordId){
         //gets the record status from the ESC
     }
 
-    static updateRecordStatus(userId,recordId,callback){
-        //updates the record status in the ESC
+    static updateRecordStatus(userId,recordId,status){
+        return recordSubscriber.update({relation : status},{where : {userId,recordId}});
     }
 
-    static creatRecordStatus(userId,recordId,status,callback){
-        //creates a record status in the ESC
+    static creatRecordStatus(userId,recordId,status){
+        return recordSubscriber.create({recordId ,userId,relation : status});
     }
 
-    static deleteRecordStatus(userId,recordId,callback){
+    static deleteRecordStatus(userId,recordId){
         //deletes a record status in the ESC
     }
 
@@ -80,13 +80,7 @@ class GroupMessage{
 
     createRecord(userId,record,callback){
         const room = this.id;
-        records.create({record,room}).then(record=>{
-            return recordSubscriber.create({recordId : record.id,userId,relation : 'owner'});
-        })
-        .then(callback)
-        .catch(err=>{
-            console.log(err);
-        });
+        return records.create({record,room});
     }
 
     getRecord(recordId,callback){

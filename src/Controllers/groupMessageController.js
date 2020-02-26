@@ -59,7 +59,7 @@ exports.leave = (req,res,next)=>{
     GroupMessage.getRooms(userId)
     .then(rooms=>{
         client.hget('groupMessage',userId,(err,socketId)=>{
-            if(!err){           
+            if(socketId){           
                 rooms.forEach(room => {
                     groupMessageIO.connected[socketId].leave(room.id);
                     // groupMessageIO.to(room).emit('offline',new User(userId));// be careful of what you emit
@@ -89,7 +89,7 @@ exports.unsubscribe = (req,res,next)=>{
     groupMessage.unsubscribe(userId)
     .then(()=>{
         client.hget('groupMessage',userId,(err,socketId)=>{
-            if(!err){
+            if(socketId){
                 groupMessageIO.connected[socketId].leave(room);
                 // groupMessageIO.to(room).emit('unsubscribtion',new User(userId));// be careful of what you emit
                 res.status(200).json({
@@ -154,8 +154,31 @@ exports.creatRecord = (req,res,next)=>{
     const userId = req.body.userId;  
     const record = req.body.record;  
     const groupMessage = new GroupMessage(room);
-    groupMessage.createRecord(userId,record,()=>{
+    groupMessage.createRecord(userId,record)
+    .then(result=>{
+        record.id = result.id;
         groupMessageIO.to(room).emit('recordCreated',record);
+        return groupMessage.getSubscribers();
+    })
+    .then(subscribers=>{
+        subscribers.forEach(subscriber=>{
+            let userId = subscriber.userId;
+            let recordId = record.id;
+            let status;
+            client.hget('groupMessage',userId,(err,socketId)=>{
+                if(!err){
+                    status = socketId ? 'seen' : 'unseen';
+                    groupMessage.createRecordStatus(userId,recordId,status);
+                }
+            });
+        });
+        return GroupMessage.updateRecordStatus(userId,record.id,'owner');
+    })
+    .catch(err=>{
+        console.log(err);
+        res.status(500).json({
+            message : "UNEXPECTED ERROR"
+        });
     });
 }
 
