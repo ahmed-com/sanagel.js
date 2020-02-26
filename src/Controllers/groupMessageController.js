@@ -190,7 +190,7 @@ exports.creatRecord = (req,res,next)=>{
 
 exports.getRecord = (req,res,next)=>{
     const room = req.body.room;
-    const recordId = req.body.recordId;
+    const recordId = req.params.recordId;
     const userId = req.body.userId;
     const groupMessage = new GroupMessage(room);
     groupMessage.getRecord(recordId)
@@ -282,10 +282,14 @@ exports.getAllRecords = (req,res,next)=>{
         });
         results.forEach(result=>{
             if(result.userId != userId){
+                let recordId = result.recordId;
                 GroupMessage.updateRecordStatus(userId,recordId,'seen');
             }
         });
-        groupMessageIO.to(room).emit('seen',userId);
+        return User.findByPk(userId);        
+    })
+    .then(user=>{
+        groupMessageIO.to(room).emit('seen',user);/* CAUTION - WARNING - BE CAREFUL */
     })
     .catch(err=>{
         console.log(err);

@@ -78,7 +78,7 @@ class GroupMessage{
     }
 
     getAllRecords(){
-        return records.findAll({where : {relation : 'owner'} , include : [User , records]});
+        return recordSubscriber.findAll({where : {relation : 'owner'} , include : [User , records]});
     }
 
     updateRecord(record){
