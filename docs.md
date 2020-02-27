@@ -10,3 +10,19 @@
 
 4. seen :
 * gets : user.
+
+## optional :
+5. subscribtion : 
+* gets : user.
+
+6. online :
+* gets : user.
+
+7. ofline : 
+* gets : user.
+
+8. unsubscribtion :
+* gets : user.
+
+9. removed :
+* gets : user.

@@ -62,7 +62,7 @@ exports.leave = (req,res,next)=>{
             if(socketId){           
                 rooms.forEach(room => {
                     groupMessageIO.connected[socketId].leave(room.id);
-                    // groupMessageIO.to(room).emit('offline',new User(userId));// be careful of what you emit
+                    // groupMessageIO.to(room).emit('ofline',new User(userId));// be careful of what you emit
                 });
                 res.status(200).json({
                     message : 'Left successfully'        
