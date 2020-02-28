@@ -31,12 +31,6 @@ User.hasMany(recordSubscriber);
 
 class GroupMessage{
     constructor(id){
-        /**
-         * consider the following later :-
-         *      this = groupMessageIO.to(roomId);
-         *      this.id = roomId;
-         * then everthing will just work the same as it does the only difference is when you start emitting from the controller you * * * will call the emit method on the model obj.
-         */
         this.id = id;
     }
 
