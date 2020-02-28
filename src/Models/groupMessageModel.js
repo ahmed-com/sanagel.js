@@ -52,7 +52,7 @@ class GroupMessage{
 
     getSubscribers(){
         const room = this.id;
-        return subscribtions.findAll({where : {room},include : [User]});        
+        return User.findAll({include : [{model : subscribtions,where : {room}}]});        
     }
 
     static getRooms(userId){
@@ -64,7 +64,7 @@ class GroupMessage{
         return recordSubscriber.update({relation : status},{where : {userId,recordId}});
     }
 
-    static creatRecordStatus(userId,recordId,status){
+    static createRecordStatus(userId,recordId,status){
         return recordSubscriber.create({recordId ,userId,relation : status});
     }
 
@@ -74,11 +74,11 @@ class GroupMessage{
     }
 
     getRecord(recordId){
-        return recordSubscriber.findOne({where : {recordId , relation : 'owner'},include : [User , records]});
+        return records.findOne({where : {recordId},include : [{model : recordSubscriber , where : {relation : 'owner'}}]});
     }
 
     getAllRecords(){
-        return recordSubscriber.findAll({where : {relation : 'owner'} , include : [User , records]});
+        return records.findAll({include : [{model : recordSubscriber ,where : {relation : 'owner'}}]});
     }
 
     updateRecord(record){

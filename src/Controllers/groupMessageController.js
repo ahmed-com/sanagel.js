@@ -11,18 +11,22 @@ exports.subscribe = (req,res,next)=>{
     groupMessage.subscribe(userId)
     .then(()=>{        
         client.hget('groupMessage',userId,(err,socketId)=>{
-            if(!err){
-                groupMessageIO.connected[socketId].join(room);
-                // groupMessageIO.to(room).emit('subscribtion',new User(userId));// be careful of what you emit
+            if(socketId){
+                groupMessageIO.connected[socketId].join(room);                
                 res.status(200).json({
                     message : 'Subscribed successfuly'
                 });
             }else{
-                res.status(405).json({
-                    message : 'Please connect with a socket first'
+                res.status(200).json({
+                    message : 'Subscribed successfuly',
+                    warning : 'Please connect with a socket'                    
                 });
             }
-        });        
+        });
+        return User.findByPk(userId);    
+    })
+    .then(user=>{
+        groupMessageIO.to(room).emit('subscribtion',user);// be careful of what you emit
     })
     .catch(err=>{
         console.log(err);
@@ -39,8 +43,7 @@ exports.join = (req,res,next)=>{
     GroupMessage.getRooms(userId)
     .then(rooms=>{
         rooms.forEach(room => {
-            groupMessageIO.connected[socketId].join(room.id);
-            // groupMessageIO.to(room).emit('online',new User(userId));// be careful of what you emit
+            groupMessageIO.connected[socketId].join(room.id);            
         });
         res.status(200).json({
             message : 'Joined successfully'        
@@ -61,8 +64,7 @@ exports.leave = (req,res,next)=>{
         client.hget('groupMessage',userId,(err,socketId)=>{
             if(socketId){           
                 rooms.forEach(room => {
-                    groupMessageIO.connected[socketId].leave(room.id);
-                    // groupMessageIO.to(room).emit('ofline',new User(userId));// be careful of what you emit
+                    groupMessageIO.connected[socketId].leave(room.id);                    
                 });
                 res.status(200).json({
                     message : 'Left successfully'        
@@ -90,17 +92,21 @@ exports.unsubscribe = (req,res,next)=>{
     .then(()=>{
         client.hget('groupMessage',userId,(err,socketId)=>{
             if(socketId){
-                groupMessageIO.connected[socketId].leave(room);
-                // groupMessageIO.to(room).emit('unsubscribtion',new User(userId));// be careful of what you emit
+                groupMessageIO.connected[socketId].leave(room);                
                 res.status(200).json({
                     message : 'Unsubscribed successfuly'
                 });
             }else{
-                res.status(405).json({
-                    message : 'Please connect with a socket first'
+                res.status(200).json({
+                    message : 'Unsubscribed successfuly',
+                    warning : 'Please connect with a socket'
                 });
             }
-        }); 
+        });
+        return User.findByPk(userId);
+    })
+    .then(user=>{
+        groupMessageIO.to(room).emit('unsubscribtion',user);// be careful of what you emit
     })
     .catch(err=>{
         console.log(err);
@@ -116,15 +122,18 @@ exports.remove = (req,res,next)=>{
     const groupMessage = new GroupMessage(room);
     groupMessage.unsubscribe(removedId)
     .then(()=>{
+        res.status(200).json({
+            message : 'Removed successfuly'
+        });
         client.hget('groupMessage',removedId,(err,socketId)=>{
-            if(!err){
-                groupMessageIO.connected[socketId].leave(room);
-                // groupMessageIO.to(room).emit('removed',new User(removedId));// be careful of what you emit                
+            if(socketId){
+                groupMessageIO.connected[socketId].leave(room);                
             }
-            res.status(200).json({
-                message : 'Removed successfuly'
-            });
-        }); 
+        });
+        return User.findByPk(removedId);
+    })
+    .then(user=>{
+        groupMessageIO.to(room).emit('removed',user);// be careful of what you emit
     })
     .catch(err=>{
         console.log(err);
@@ -162,13 +171,13 @@ exports.creatRecord = (req,res,next)=>{
     })
     .then(subscribers=>{
         subscribers.forEach(subscriber=>{
-            let userId = subscriber.userId;
+            let userId = subscriber.id;
             let recordId = record.id;
             let status;
             client.hget('groupMessage',userId,(err,socketId)=>{
                 if(!err){
                     status = socketId ? 'seen' : 'unseen';
-                    groupMessage.createRecordStatus(userId,recordId,status);
+                    GroupMessage.createRecordStatus(userId,recordId,status);
                 }
             });
         });
