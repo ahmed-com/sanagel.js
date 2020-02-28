@@ -68,7 +68,7 @@ class GroupMessage{
     }
 
     getRecord(recordId){
-        return records.findOne({where : {recordId},include : [{model : recordSubscriber , where : {relation : 'owner'}}]});
+        return records.findOne({where : {id : recordId},include : [{model : recordSubscriber , where : {relation : 'owner'}}]});
     }
 
     getAllRecords(){
