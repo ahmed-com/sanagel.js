@@ -163,7 +163,7 @@ exports.creatRecord = (req,res,next)=>{
     const userId = req.body.userId;  
     const record = req.body.record;  
     const groupMessage = new GroupMessage(room);
-    groupMessage.createRecord(userId,record)
+    groupMessage.createRecord(record)
     .then(result=>{
         record.id = result.id;
         groupMessageIO.to(room).emit('recordCreated',record);
@@ -206,7 +206,10 @@ exports.getRecord = (req,res,next)=>{
     .then(result=>{
         res.status(200).json({
             message : 'Record requested',
-            ...result/* CAUTION - WARNING - BE CAREFUL */
+            id : result.id,
+            record : result.record,
+            createdAt : result.createdAt,
+            // owner : result['groupMessageESCs.userId']
         });
         if(result.userId != userId){
             GroupMessage.updateRecordStatus(userId,recordId,'seen');
