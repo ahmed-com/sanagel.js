@@ -46,7 +46,14 @@ class GroupMessage{
 
     getSubscribers(){
         const room = this.id;
-        return User.findAll({include : [{model : subscribtions,where : {room}}]});        
+        // return User.findAll({include : [{model : subscribtions,where : {room}}]});
+        const query = 'SELECT `users`.* , `groupMessageRSCs`.`id` AS `subscriptionId`, `groupMessageRSCs`.`room` AS `room`, `groupMessageRSCs`.`createdAt` AS `subscriptionDate` FROM `users` AS `users` INNER JOIN `groupMessageRSCs` AS `groupMessageRSCs` ON `users`.`id` = `groupMessageRSCs`.`userId` AND `groupMessageRSCs`.`room` = :room ;';
+        return db.query(query,{
+            replacements :{
+                room
+            },
+            type : db.QueryTypes.SELECT
+        });
     }
 
     static getRooms(userId){
@@ -68,7 +75,15 @@ class GroupMessage{
     }
 
     getRecord(recordId){
-        return records.findOne({where : {id : recordId},include : [{model : recordSubscriber , where : {relation : 'owner'}}]});
+        // return records.findOne({where : {id : recordId},include : [{model : recordSubscriber , where : {relation : 'owner'}}]});
+        const query = 'SELECT `groupMessageERC`.`id`, `groupMessageERC`.`record`, `groupMessageERC`.`room`, `groupMessageERC`.`createdAt`, `groupMessageERC`.`updatedAt`, `groupMessageESCs`.`userId` AS `userId` FROM `groupMessageERCs` AS `groupMessageERC` INNER JOIN `groupMessageESCs` AS `groupMessageESCs` ON `groupMessageERC`.`id` = `groupMessageESCs`.`recordId` AND `groupMessageESCs`.`relation` = :relation WHERE `groupMessageERC`.`id` = :recordId;'
+        return db.query(query,{
+            replacements : {
+                relation : 'owner',
+                recordId
+            },
+            type : db.QueryTypes.SELECT
+        })
     }
 
     getAllRecords(){
