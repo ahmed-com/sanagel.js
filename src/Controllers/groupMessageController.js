@@ -4,6 +4,14 @@ const io = require('../utils/socket').getIO();
 const groupMessageIO = io.of('/groupMessage');
 const client = require('../utils/redis').getClient();
 
+const getSocketId = userId =>{
+    return new Promise((resolve,reject)=>{
+        client.hget('groupMessage',userId,(err,value)=>{
+            err ? reject(err) : resolve(value);
+        });
+    })
+}
+
 exports.subscribe = (req,res,next)=>{
     const room = req.body.room;
     const userId = req.body.userId;
@@ -163,31 +171,25 @@ exports.creatRecord = (req,res,next)=>{
     const userId = req.body.userId;  
     const record = req.body.record;  
     const groupMessage = new GroupMessage(room);
-    groupMessage.createRecord(record)
+    groupMessage.createRecord(record)        
     .then(result=>{
         record.id = result.id;
         groupMessageIO.to(room).emit('recordCreated',JSON.stringify(record));
-        return groupMessage.getSubscribers();
-    })
-    .then(subscribers=>{
-        subscribers.forEach(subscriber=>{
-            let userId = subscriber.id;
-            let recordId = record.id;
-            let status;
-            client.hget('groupMessage',userId,(err,socketId)=>{
-                if(!err){
-                    status = socketId ? 'seen' : 'unseen';
-                    GroupMessage.createRecordStatus(userId,recordId,status);
-                }
-            });
-        });
-    })
-    .then(()=>GroupMessage.updateRecordStatus(userId,record.id,'owner'))
-    .then(()=>{
         res.status(201).json({
             message : 'Record created successfully',
             record : record
         });
+        return groupMessage.getSubscribers();
+    })
+    .then(async function(subscribers){
+        await (async function(){
+            for(subscriber of subscribers){
+                let socketId = await getSocketId(subscriber.id);
+                let status = socketId ? 'seen' : 'unseen';
+                await GroupMessage.createRecordStatus(subscriber.id,record.id,status);
+            }
+        })();
+        await GroupMessage.updateRecordStatus(userId,record.id,'owner');
     })
     .catch(err=>{
         console.log(err);
