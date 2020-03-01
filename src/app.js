@@ -27,12 +27,12 @@ app.use((req, res, next) => {
 
 app.use('/groupMessage',groupMessageRouter);
 
-db.sync({force : true})
+db.sync()
 .then(result=>{
-    User.create({userName : 'one', mail : 'one@test.test'});
-    User.create({userName : 'two', mail : 'two@test.test'});
-    User.create({userName : 'three', mail : 'three@test.test'});
-    User.create({userName : 'four', mail : 'fourth@test.test'});
+    // User.create({userName : 'one', mail : 'one@test.test'});
+    // User.create({userName : 'two', mail : 'two@test.test'});
+    // User.create({userName : 'three', mail : 'three@test.test'});
+    // User.create({userName : 'four', mail : 'fourth@test.test'});
     server.listen(port,()=>{
         console.log(`server is up at port ${port}`);
     });

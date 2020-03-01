@@ -4,6 +4,14 @@ const io = require('../utils/socket').getIO();
 const groupMessageIO = io.of('/groupMessage');
 const client = require('../utils/redis').getClient();
 
+const getSocketId = userId =>{
+    return new Promise((resolve,reject)=>{
+        client.hget('groupMessage',userId,(err,value)=>{
+            err ? reject(err) : resolve(value);
+        });
+    })
+}
+
 exports.subscribe = (req,res,next)=>{
     const room = req.body.room;
     const userId = req.body.userId;
@@ -26,7 +34,7 @@ exports.subscribe = (req,res,next)=>{
         return User.findByPk(userId);    
     })
     .then(user=>{
-        groupMessageIO.to(room).emit('subscribtion',user);// be careful of what you emit
+        groupMessageIO.to(room).emit('subscribtion',JSON.stringify(user));// be careful of what you emit
     })
     .catch(err=>{
         console.log(err);
@@ -106,7 +114,7 @@ exports.unsubscribe = (req,res,next)=>{
         return User.findByPk(userId);
     })
     .then(user=>{
-        groupMessageIO.to(room).emit('unsubscribtion',user);// be careful of what you emit
+        groupMessageIO.to(room).emit('unsubscribtion',JSON.stringify(user));// be careful of what you emit
     })
     .catch(err=>{
         console.log(err);
@@ -133,7 +141,7 @@ exports.remove = (req,res,next)=>{
         return User.findByPk(removedId);
     })
     .then(user=>{
-        groupMessageIO.to(room).emit('removed',user);// be careful of what you emit
+        groupMessageIO.to(room).emit('removed',JSON.stringify(user));// be careful of what you emit
     })
     .catch(err=>{
         console.log(err);
@@ -163,31 +171,25 @@ exports.creatRecord = (req,res,next)=>{
     const userId = req.body.userId;  
     const record = req.body.record;  
     const groupMessage = new GroupMessage(room);
-    groupMessage.createRecord(record)
+    groupMessage.createRecord(record)        
     .then(result=>{
         record.id = result.id;
-        groupMessageIO.to(room).emit('recordCreated',record);
-        return groupMessage.getSubscribers();
-    })
-    .then(subscribers=>{
-        subscribers.forEach(subscriber=>{
-            let userId = subscriber.id;
-            let recordId = record.id;
-            let status;
-            client.hget('groupMessage',userId,(err,socketId)=>{
-                if(!err){
-                    status = socketId ? 'seen' : 'unseen';
-                    GroupMessage.createRecordStatus(userId,recordId,status);
-                }
-            });
-        });
-        return GroupMessage.updateRecordStatus(userId,record.id,'owner');
-    })
-    .then(()=>{
+        groupMessageIO.to(room).emit('recordCreated',JSON.stringify(record));
         res.status(201).json({
             message : 'Record created successfully',
             record : record
         });
+        return groupMessage.getSubscribers();
+    })
+    .then(async function(subscribers){
+        await (async function(){
+            for(subscriber of subscribers){
+                let socketId = await getSocketId(subscriber.id);
+                let status = socketId ? 'seen' : 'unseen';
+                await GroupMessage.createRecordStatus(subscriber.id,record.id,status);
+            }
+        })();
+        await GroupMessage.updateRecordStatus(userId,record.id,'owner');
     })
     .catch(err=>{
         console.log(err);
@@ -203,14 +205,8 @@ exports.getRecord = (req,res,next)=>{
     const userId = req.body.userId;
     const groupMessage = new GroupMessage(room);
     groupMessage.getRecord(recordId)
-    .then(result=>{
-        res.status(200).json({
-            message : 'Record requested',
-            id : result.id,
-            record : result.record,
-            createdAt : result.createdAt,
-            // owner : result['groupMessageESCs.userId']
-        });
+    .then(([result])=>{
+        res.status(200).json(result);
         if(result.userId != userId){
             GroupMessage.updateRecordStatus(userId,recordId,'seen');
         }
@@ -237,7 +233,7 @@ exports.updateRecord = (req,res,next)=>{
         }else{
             GroupMessage.updateRecord(record)
             .then(()=>{
-                groupMessageIO.to(room).emit('recordUpdated',record);
+                groupMessageIO.to(room).emit('recordUpdated',JSON.stringify(record));
                 res.status(202).json({
                     message : 'Updated successfully'
                 })
@@ -290,18 +286,18 @@ exports.getAllRecords = (req,res,next)=>{
     .then(results=>{
         res.status(200).json({
             message : 'Records requested',
-            ...results/* CAUTION - WARNING - BE CAREFUL */
+            results/* CAUTION - WARNING - BE CAREFUL */
         });
-        results.forEach(result=>{
-            if(result.userId != userId){
-                let recordId = result.recordId;
-                GroupMessage.updateRecordStatus(userId,recordId,'seen');
-            }
-        });
+        // results.forEach(result=>{
+        //     if(result.userId != userId){
+        //         let recordId = result.recordId;
+        //         GroupMessage.updateRecordStatus(userId,recordId,'seen');
+        //     }
+        // });
         return User.findByPk(userId);        
     })
     .then(user=>{
-        groupMessageIO.to(room).emit('seen',user);/* CAUTION - WARNING - BE CAREFUL */
+        groupMessageIO.to(room).emit('seen',JSON.stringify(user));/* CAUTION - WARNING - BE CAREFUL */
     })
     .catch(err=>{
         console.log(err);
