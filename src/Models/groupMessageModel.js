@@ -87,7 +87,15 @@ class GroupMessage{
     }
 
     getAllRecords(){
-        return records.findAll({include : [{model : recordSubscriber ,where : {relation : 'owner'}}]});
+        const room = this.id;
+        const query = 'SELECT `groupMessageERC`.`id`, `groupMessageERC`.`record`, `groupMessageERC`.`room`, `groupMessageERC`.`createdAt`, `groupMessageERC`.`updatedAt`, `groupMessageESCs`.`userId` AS `userId` FROM `groupMessageERCs` AS `groupMessageERC` INNER JOIN `groupMessageESCs` AS `groupMessageESCs` ON `groupMessageERC`.`id` = `groupMessageESCs`.`recordId` AND `groupMessageESCs`.`relation` = :relation WHERE `groupMessageERC`.`room` = :room;'
+        return db.query(query,{
+            replacements : {
+                relation : 'owner',
+                room
+            },
+            type : db.QueryTypes.SELECT
+        })
     }
 
     updateRecord(record){
