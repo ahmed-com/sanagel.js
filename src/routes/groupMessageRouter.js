@@ -1,26 +1,27 @@
 const router = require('express').Router();
 const groupMessage = require('../Controllers/groupMessageController');
+const isAuth = require('../middlewares/is-auth');
 
-router.post('/join/',groupMessage.join);
+router.post('/join/',isAuth,groupMessage.join);
 
-router.post('/subscribe',groupMessage.subscribe);
+router.post('/subscribe',isAuth,groupMessage.subscribe);
 
-router.post('/unsubscribe',groupMessage.unsubscribe);
+router.post('/unsubscribe',isAuth,groupMessage.unsubscribe);
 
-router.post('/leave/',groupMessage.join);
+router.post('/leave/',isAuth,groupMessage.join);
 
-router.delete('/remove/',groupMessage.remove);
+router.delete('/remove/',isAuth,groupMessage.remove);
 
-router.get('/subscribers',groupMessage.getSubscribers);
+router.get('/subscribers',isAuth,groupMessage.getSubscribers);
 
-router.get('/record/',groupMessage.getAllRecords);
+router.get('/record/',isAuth,groupMessage.getAllRecords);
 
-router.get('/record/:recordId',groupMessage.getRecord);
+router.get('/record/:recordId',isAuth,groupMessage.getRecord);
 
-router.put('/record/',groupMessage.updateRecord);
+router.put('/record/',isAuth,groupMessage.updateRecord);
 
-router.delete('/record/',groupMessage.deleteRecord);
+router.delete('/record/',isAuth,groupMessage.deleteRecord);
 
-router.post('/record/',groupMessage.creatRecord);
+router.post('/record/',isAuth,groupMessage.creatRecord);
 
 module.exports = router;

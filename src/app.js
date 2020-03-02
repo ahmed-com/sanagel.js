@@ -14,6 +14,7 @@ const publicPath = path.join(__dirname,'/../../client');
 const port =process.env.PORT || 3000;
 
 const groupMessageRouter = require('./routes/groupMessageRouter');
+const authRouter = require('./routes/auth');
 
 app.use(bodyParser.json());
 app.use(express.static(publicPath)); 
@@ -26,6 +27,7 @@ app.use((req, res, next) => {
   });
 
 app.use('/groupMessage',groupMessageRouter);
+app.use('/auth',authRouter);
 
 db.sync()
 .then(result=>{

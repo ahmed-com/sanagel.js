@@ -13,7 +13,11 @@ const User = db.define('users',{
         type : Sequelize.STRING,
         allowNull : false
     },
-    mail : Sequelize.STRING
+    mail : Sequelize.STRING,
+    hashedPW : {
+        type : Sequelize.STRING,
+        allowNull : false
+    }
 });
 
 module.exports = User;
