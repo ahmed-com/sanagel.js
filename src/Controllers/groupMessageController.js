@@ -286,14 +286,13 @@ exports.getAllRecords = (req,res,next)=>{
     .then(results=>{
         res.status(200).json({
             message : 'Records requested',
-            results/* CAUTION - WARNING - BE CAREFUL */
+            results
         });
-        // results.forEach(result=>{
-        //     if(result.userId != userId){
-        //         let recordId = result.recordId;
-        //         GroupMessage.updateRecordStatus(userId,recordId,'seen');
-        //     }
-        // });
+        results.forEach(result=>{
+            if(result.userId != userId){
+                GroupMessage.updateRecordStatus(userId,result.id,'seen');
+            }
+        });
         return User.findByPk(userId);        
     })
     .then(user=>{
