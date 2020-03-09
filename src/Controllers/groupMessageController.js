@@ -1,40 +1,28 @@
-const User = require('../Models/user');
-const GroupMessage = require('../Models/groupMessageModel');
-const io = require('../utils/socket').getIO();
-const groupMessageIO = io.of('/groupMessage');
-const client = require('../utils/redis').getClient();
 
-const getSocketId = userId =>{
-    return new Promise((resolve,reject)=>{
-        client.hget('groupMessage',userId,(err,value)=>{
-            err ? reject(err) : resolve(value);
-        });
-    })
-}
 
 exports.subscribe = (req,res,next)=>{
+    const Publisher = req.publisher
     const room = req.body.room;
     const userId = req.body.userId;
-    const groupMessage = new GroupMessage(room);
-    groupMessage.subscribe(userId)
-    .then(()=>{        
-        client.hget('groupMessage',userId,(err,socketId)=>{
-            if(socketId){
-                groupMessageIO.connected[socketId].join(room);                
-                res.status(200).json({
-                    message : 'Subscribed successfuly'
-                });
-            }else{
-                res.status(200).json({
-                    message : 'Subscribed successfuly',
-                    warning : 'Please connect with a socket'                    
-                });
-            }
-        });
-        return User.findByPk(userId);    
+    const publisher = new Publisher(room);
+    publisher.subscribe(userId)
+    .then(()=>publisher.getSocketId(userId))
+    .then(socketId=>{         
+        if(socketId){
+            publisher.join(socketId);                
+            res.status(200).json({
+                message : 'Subscribed successfuly'
+            });
+        }else{
+            res.status(200).json({
+                message : 'Subscribed successfuly',
+                warning : 'Please connect with a socket'                    
+            });
+        }
+        return Publisher.getUser(userId);    
     })
     .then(user=>{
-        groupMessageIO.to(room).emit('subscribtion',JSON.stringify(user));// be careful of what you emit
+        publisher.emit('subscribtion',JSON.stringify(user));// be careful of what you emit
     })
     .catch(err=>{
         console.log(err);
@@ -45,13 +33,14 @@ exports.subscribe = (req,res,next)=>{
 }
 
 exports.join = (req,res,next)=>{
+    const Publisher = req.publisher
     const userId = req.body.userId;
     const socketId = req.body.socketId;
-    client.hset('groupMessage',userId,socketId);
-    GroupMessage.getRooms(userId)
+    client.hset('publisher',userId,socketId);
+    Publisher.getRooms(userId)
     .then(rooms=>{
         rooms.forEach(room => {
-            groupMessageIO.connected[socketId].join(room.id);            
+            publisherIO.connected[socketId].join(room.id);            
         });
         res.status(200).json({
             message : 'Joined successfully'        
@@ -66,13 +55,14 @@ exports.join = (req,res,next)=>{
 }
 
 exports.leave = (req,res,next)=>{
+    const Publisher = req.publisher
     const userId = req.body.userId;
-    GroupMessage.getRooms(userId)
+    Publisher.getRooms(userId)
     .then(rooms=>{
-        client.hget('groupMessage',userId,(err,socketId)=>{
+        client.hget('publisher',userId,(err,socketId)=>{
             if(socketId){           
                 rooms.forEach(room => {
-                    groupMessageIO.connected[socketId].leave(room.id);                    
+                    publisherIO.connected[socketId].leave(room.id);                    
                 });
                 res.status(200).json({
                     message : 'Left successfully'        
@@ -93,14 +83,15 @@ exports.leave = (req,res,next)=>{
 }
 
 exports.unsubscribe = (req,res,next)=>{
+    const Publisher = req.publisher
     const room = req.body.room;
     const userId = req.body.userId;
-    const groupMessage = new GroupMessage(room);
-    groupMessage.unsubscribe(userId)
+    const publisher = new Publisher(room);
+    publisher.unsubscribe(userId)
     .then(()=>{
-        client.hget('groupMessage',userId,(err,socketId)=>{
+        client.hget('publisher',userId,(err,socketId)=>{
             if(socketId){
-                groupMessageIO.connected[socketId].leave(room);                
+                publisherIO.connected[socketId].leave(room);
                 res.status(200).json({
                     message : 'Unsubscribed successfuly'
                 });
@@ -111,10 +102,10 @@ exports.unsubscribe = (req,res,next)=>{
                 });
             }
         });
-        return User.findByPk(userId);
+        return Publisher.getUser(userId);
     })
     .then(user=>{
-        groupMessageIO.to(room).emit('unsubscribtion',JSON.stringify(user));// be careful of what you emit
+        publisherIO.to(room).emit('unsubscribtion',JSON.stringify(user));// be careful of what you emit
     })
     .catch(err=>{
         console.log(err);
@@ -125,23 +116,24 @@ exports.unsubscribe = (req,res,next)=>{
 }
 
 exports.remove = (req,res,next)=>{
+    const Publisher = req.publisher
     const room = req.body.room;
     const removedId = req.body.removedId;
-    const groupMessage = new GroupMessage(room);
-    groupMessage.unsubscribe(removedId)
+    const publisher = new Publisher(room);
+    publisher.unsubscribe(removedId)
     .then(()=>{
         res.status(200).json({
             message : 'Removed successfuly'
         });
-        client.hget('groupMessage',removedId,(err,socketId)=>{
+        client.hget('publisher',removedId,(err,socketId)=>{
             if(socketId){
-                groupMessageIO.connected[socketId].leave(room);                
+                publisherIO.connected[socketId].leave(room);                
             }
         });
-        return User.findByPk(removedId);
+        return Publisher.getUser(removedId);
     })
     .then(user=>{
-        groupMessageIO.to(room).emit('removed',JSON.stringify(user));// be careful of what you emit
+        publisherIO.to(room).emit('removed',JSON.stringify(user));// be careful of what you emit
     })
     .catch(err=>{
         console.log(err);
@@ -152,9 +144,10 @@ exports.remove = (req,res,next)=>{
 }
 
 exports.getSubscribers = (req,res,next)=>{
+    const Publisher = req.publisher
     const room = req.body.room;
-    const groupMessage = new GroupMessage(room);
-    groupMessage.getSubscribers()
+    const publisher = new Publisher(room);
+    publisher.getSubscribers()
     .then(subscribers=>{
         res.status(200).json(subscribers);//CAUTION - WARNING - BE CAREFUL
     })
@@ -167,29 +160,30 @@ exports.getSubscribers = (req,res,next)=>{
 }
 
 exports.creatRecord = (req,res,next)=>{
+    const Publisher = req.publisher
     const room = req.body.room;
     const userId = req.body.userId;  
     const record = req.body.record;  
-    const groupMessage = new GroupMessage(room);
-    groupMessage.createRecord(record)        
+    const publisher = new Publisher(room);
+    publisher.createRecord(record)        
     .then(result=>{
         record.id = result.id;
-        groupMessageIO.to(room).emit('recordCreated',JSON.stringify(record));
+        publisherIO.to(room).emit('recordCreated',JSON.stringify(record));
         res.status(201).json({
             message : 'Record created successfully',
             record : record
         });
-        return groupMessage.getSubscribers();
+        return publisher.getSubscribers();
     })
     .then(async function(subscribers){
         await (async function(){
             for(subscriber of subscribers){
                 let socketId = await getSocketId(subscriber.id);
                 let status = socketId ? 'seen' : 'unseen';
-                await GroupMessage.createRecordStatus(subscriber.id,record.id,status);
+                await Publisher.createRecordStatus(subscriber.id,record.id,status);
             }
         })();
-        await GroupMessage.updateRecordStatus(userId,record.id,'owner');
+        await Publisher.updateRecordStatus(userId,record.id,'owner');
     })
     .catch(err=>{
         console.log(err);
@@ -200,15 +194,16 @@ exports.creatRecord = (req,res,next)=>{
 }
 
 exports.getRecord = (req,res,next)=>{
+    const Publisher = req.publisher
     const room = req.body.room;
     const recordId = req.params.recordId;
     const userId = req.body.userId;
-    const groupMessage = new GroupMessage(room);
-    groupMessage.getRecord(recordId)
+    const publisher = new Publisher(room);
+    publisher.getRecord(recordId)
     .then(([result])=>{
         res.status(200).json(result);
         if(result.userId != userId){
-            GroupMessage.updateRecordStatus(userId,recordId,'seen');
+            Publisher.updateRecordStatus(userId,recordId,'seen');
         }
     })
     .catch(err=>{
@@ -220,20 +215,21 @@ exports.getRecord = (req,res,next)=>{
 }
 
 exports.updateRecord = (req,res,next)=>{
+    const Publisher = req.publisher
     const room = req.body.room;
     const record = req.body.record;
     const userId = req.body.userId;
-    const groupMessage = new GroupMessage(room);
-    groupMessage.getRecord(record.id)
+    const publisher = new Publisher(room);
+    publisher.getRecord(record.id)
     .then(result=>{
         if(result.userId != userId){
             res.status(403).json({
                 message : 'Unauthorised Action'
             });            
         }else{
-            GroupMessage.updateRecord(record)
+            Publisher.updateRecord(record)
             .then(()=>{
-                groupMessageIO.to(room).emit('recordUpdated',JSON.stringify(record));
+                publisherIO.to(room).emit('recordUpdated',JSON.stringify(record));
                 res.status(202).json({
                     message : 'Updated successfully'
                 })
@@ -249,11 +245,12 @@ exports.updateRecord = (req,res,next)=>{
 }
 
 exports.deleteRecord = (req,res,next)=>{
+    const Publisher = req.publisher
     const room = req.body.room;
     const recordId = req.body.recordId;
     const userId = req.body.userId;
-    const groupMessage = new GroupMessage(room);
-    groupMessage.getRecord(recordId)
+    const publisher = new Publisher(room);
+    publisher.getRecord(recordId)
     .then(result=>{
         if(result.userId != userId){
             res.status(403).json({
@@ -261,9 +258,9 @@ exports.deleteRecord = (req,res,next)=>{
             });
             return;
         }else{
-            GroupMessage.deleteRecord(recordId)
+            Publisher.deleteRecord(recordId)
             .then(()=>{
-                groupMessageIO.to(room).emit('recordDeleted',recordId);
+                publisherIO.to(room).emit('recordDeleted',recordId);
                 res.status(202).json({
                     message : 'Deleted successfully'
                 })
@@ -279,10 +276,11 @@ exports.deleteRecord = (req,res,next)=>{
 }
 
 exports.getAllRecords = (req,res,next)=>{
+    const Publisher = req.publisher
     const room = req.body.room;
     const userId = req.body.userId;
-    const groupMessage = new GroupMessage(room);
-    groupMessage.getAllRecords()
+    const publisher = new Publisher(room);
+    publisher.getAllRecords()
     .then(results=>{
         res.status(200).json({
             message : 'Records requested',
@@ -290,13 +288,13 @@ exports.getAllRecords = (req,res,next)=>{
         });
         results.forEach(result=>{
             if(result.userId != userId){
-                GroupMessage.updateRecordStatus(userId,result.id,'seen');
+                Publisher.updateRecordStatus(userId,result.id,'seen');
             }
         });
-        return User.findByPk(userId);        
+        return Publisher.getUser(userId);        
     })
     .then(user=>{
-        groupMessageIO.to(room).emit('seen',JSON.stringify(user));/* CAUTION - WARNING - BE CAREFUL */
+        publisherIO.to(room).emit('seen',JSON.stringify(user));/* CAUTION - WARNING - BE CAREFUL */
     })
     .catch(err=>{
         console.log(err);
