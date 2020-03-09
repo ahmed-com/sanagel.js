@@ -1,4 +1,4 @@
-
+const {errorCatcher , throw400 , throw401 , throw404} = require('../utils/errorHandler');
 
 exports.subscribe = (req,res,next)=>{
     const Publisher = req.publisher
@@ -24,62 +24,48 @@ exports.subscribe = (req,res,next)=>{
     .then(user=>{
         publisher.emit('subscribtion',JSON.stringify(user));// be careful of what you emit
     })
-    .catch(err=>{
-        console.log(err);
-        res.status(500).json({
-            message : "UNEXPECTED ERROR"
-        });
-    });
+    .catch(errorCatcher);
 }
 
 exports.join = (req,res,next)=>{
     const Publisher = req.publisher
     const userId = req.body.userId;
     const socketId = req.body.socketId;
-    client.hset('publisher',userId,socketId);
+    Publisher.setScocketId(socketId,userId);
     Publisher.getRooms(userId)
     .then(rooms=>{
-        rooms.forEach(room => {
-            publisherIO.connected[socketId].join(room.id);            
-        });
         res.status(200).json({
             message : 'Joined successfully'        
         });
-    })
-    .catch(err=>{
-        console.log(err);
-        res.status(500).json({
-            message : "UNEXPECTED ERROR"
+        rooms.forEach(room => {
+            room.join(socketId);           
         });
-    });
+    })
+    .catch(errorCatcher);
 }
 
 exports.leave = (req,res,next)=>{
     const Publisher = req.publisher
     const userId = req.body.userId;
-    Publisher.getRooms(userId)
+    let socketId;
+    Publisher.getSocketId(userId)
+    .then(_socketId=>{
+        if(_socketId){
+            socketId = _socketId;
+            return Publisher.getRooms(userId);
+        }else{
+            throw400('something went wrong');
+        }
+    })    
     .then(rooms=>{
-        client.hget('publisher',userId,(err,socketId)=>{
-            if(socketId){           
-                rooms.forEach(room => {
-                    publisherIO.connected[socketId].leave(room.id);                    
-                });
-                res.status(200).json({
-                    message : 'Left successfully'        
-                });
-            }else{
-                res.status(500).json({
-                    message : 'Something went wrong'
-                });
-            }
+        res.status(200).json({
+            message : 'Left successfully',                
+        });
+        rooms.forEach(room => {
+            room.leave(socketId);                    
         });
     })
-    .catch(err=>{
-        console.log(err);
-        res.status(500).json({
-            message : "UNEXPECTED ERROR"
-        });
-    });
+    .catch(errorCatcher);
 }
 
 exports.unsubscribe = (req,res,next)=>{
@@ -88,31 +74,25 @@ exports.unsubscribe = (req,res,next)=>{
     const userId = req.body.userId;
     const publisher = new Publisher(room);
     publisher.unsubscribe(userId)
-    .then(()=>{
-        client.hget('publisher',userId,(err,socketId)=>{
-            if(socketId){
-                publisherIO.connected[socketId].leave(room);
-                res.status(200).json({
-                    message : 'Unsubscribed successfuly'
-                });
-            }else{
-                res.status(200).json({
-                    message : 'Unsubscribed successfuly',
-                    warning : 'Please connect with a socket'
-                });
-            }
-        });
+    .then(()=>Publisher.getSocketId(userId))
+    .then(socketId=>{
+        if(socketId){
+            publisher.leave(socketId);
+            res.status(200).json({
+                message : 'Unsubscribed successfuly'
+            });
+        }else{
+            res.status(200).json({
+                message : 'Unsubscribed successfuly',
+                warning : 'Please connect with a socket'
+            });
+        }
         return Publisher.getUser(userId);
     })
     .then(user=>{
-        publisherIO.to(room).emit('unsubscribtion',JSON.stringify(user));// be careful of what you emit
+        publisher.emit('unsubscribtion',JSON.stringify(user));// be careful of what you emit
     })
-    .catch(err=>{
-        console.log(err);
-        res.status(500).json({
-            message : "UNEXPECTED ERROR"
-        });
-    });
+    .catch(errorCatcher);
 }
 
 exports.remove = (req,res,next)=>{
@@ -125,22 +105,16 @@ exports.remove = (req,res,next)=>{
         res.status(200).json({
             message : 'Removed successfuly'
         });
-        client.hget('publisher',removedId,(err,socketId)=>{
-            if(socketId){
-                publisherIO.connected[socketId].leave(room);                
-            }
-        });
+        return Publisher.getSocketId(removedId);
+    })
+    .then(socketId=>{
+        publisher.leave(socketId);
         return Publisher.getUser(removedId);
     })
     .then(user=>{
-        publisherIO.to(room).emit('removed',JSON.stringify(user));// be careful of what you emit
+        publisher.emit('removed',JSON.stringify(user));// be careful of what you emit
     })
-    .catch(err=>{
-        console.log(err);
-        res.status(500).json({
-            message : "UNEXPECTED ERROR"
-        });
-    });
+    .catch(errorCatcher);
 }
 
 exports.getSubscribers = (req,res,next)=>{
@@ -151,12 +125,7 @@ exports.getSubscribers = (req,res,next)=>{
     .then(subscribers=>{
         res.status(200).json(subscribers);//CAUTION - WARNING - BE CAREFUL
     })
-    .catch(err=>{
-        console.log(err);
-        res.status(500).json({
-            message : "UNEXPECTED ERROR"
-        });
-    });
+    .catch(errorCatcher);
 }
 
 exports.creatRecord = (req,res,next)=>{
@@ -168,29 +137,24 @@ exports.creatRecord = (req,res,next)=>{
     publisher.createRecord(record)        
     .then(result=>{
         record.id = result.id;
-        publisherIO.to(room).emit('recordCreated',JSON.stringify(record));
+        publisher.emit('recordCreated',JSON.stringify(record));
         res.status(201).json({
             message : 'Record created successfully',
-            record : record
+            record
         });
         return publisher.getSubscribers();
     })
     .then(async function(subscribers){
         await (async function(){
             for(subscriber of subscribers){
-                let socketId = await getSocketId(subscriber.id);
+                let socketId = await Publisher.getSocketId(subscriber.id);
                 let status = socketId ? 'seen' : 'unseen';
                 await Publisher.createRecordStatus(subscriber.id,record.id,status);
             }
         })();
         await Publisher.updateRecordStatus(userId,record.id,'owner');
     })
-    .catch(err=>{
-        console.log(err);
-        res.status(500).json({
-            message : "UNEXPECTED ERROR"
-        });
-    });
+    .catch(errorCatcher);
 }
 
 exports.getRecord = (req,res,next)=>{
@@ -201,17 +165,16 @@ exports.getRecord = (req,res,next)=>{
     const publisher = new Publisher(room);
     publisher.getRecord(recordId)
     .then(([result])=>{
-        res.status(200).json(result);
+        if(result){
+            res.status(200).json(result);
+        }else{
+            throw404('Record Not Found');
+        }
         if(result.userId != userId){
             Publisher.updateRecordStatus(userId,recordId,'seen');
         }
     })
-    .catch(err=>{
-        console.log(err);
-        res.status(500).json({
-            message : "UNEXPECTED ERROR"
-        });
-    });
+    .catch(errorCatcher);
 }
 
 exports.updateRecord = (req,res,next)=>{
@@ -222,26 +185,20 @@ exports.updateRecord = (req,res,next)=>{
     const publisher = new Publisher(room);
     publisher.getRecord(record.id)
     .then(result=>{
+        if(!result) throw404('Record Not Found');
         if(result.userId != userId){
-            res.status(403).json({
-                message : 'Unauthorised Action'
-            });            
+            throw401('Unauthorized Action');           
         }else{
             Publisher.updateRecord(record)
             .then(()=>{
-                publisherIO.to(room).emit('recordUpdated',JSON.stringify(record));
+                publisher.emit('recordUpdated',JSON.stringify(record));
                 res.status(202).json({
                     message : 'Updated successfully'
                 })
             })
         }        
     })
-    .catch(err=>{
-        console.log(err);
-        res.status(500).json({
-            message : "UNEXPECTED ERROR"
-        });
-    });
+    .catch(errorCatcher);
 }
 
 exports.deleteRecord = (req,res,next)=>{
@@ -252,27 +209,21 @@ exports.deleteRecord = (req,res,next)=>{
     const publisher = new Publisher(room);
     publisher.getRecord(recordId)
     .then(result=>{
+        if(!result) throw404('Record Not Found');
         if(result.userId != userId){
-            res.status(403).json({
-                message : 'Unauthorised Action'
-            });
+            throw401('Unauthorized Action');
             return;
         }else{
-            Publisher.deleteRecord(recordId)
-            .then(()=>{
-                publisherIO.to(room).emit('recordDeleted',recordId);
-                res.status(202).json({
-                    message : 'Deleted successfully'
-                })
-            })
+            return Publisher.deleteRecord(recordId);            
         }        
     })
-    .catch(err=>{
-        console.log(err);
-        res.status(500).json({
-            message : "UNEXPECTED ERROR"
-        });
-    });
+    .then(()=>{
+        publisher.emit('recordDeleted',recordId);
+        res.status(202).json({
+            message : 'Deleted successfully'
+        })
+    })
+    .catch(errorCatcher);
 }
 
 exports.getAllRecords = (req,res,next)=>{
@@ -294,12 +245,7 @@ exports.getAllRecords = (req,res,next)=>{
         return Publisher.getUser(userId);        
     })
     .then(user=>{
-        publisherIO.to(room).emit('seen',JSON.stringify(user));/* CAUTION - WARNING - BE CAREFUL */
+        publisher.emit('seen',JSON.stringify(user));/* CAUTION - WARNING - BE CAREFUL */
     })
-    .catch(err=>{
-        console.log(err);
-        res.status(500).json({
-            message : "UNEXPECTED ERROR"
-        });
-    });
+    .catch(errorCatcher);
 }

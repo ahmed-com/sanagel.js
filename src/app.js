@@ -5,7 +5,6 @@ const io = require('./utils/socket').init(server);
 const bodyParser = require('body-parser');
 const db = require('./utils/db');
 const redis = require('./utils/redis');
-const User = require('./Models/user');
 
 redis.init();
 
@@ -13,7 +12,8 @@ const path = require('path');
 const publicPath = path.join(__dirname,'/../../client');
 const port =process.env.PORT || 3000;
 
-const groupMessageRouter = require('./routes/groupMessageRouter');
+// const groupMessageRouter = require('./routes/groupMessageRouter');
+const projectRouter = require('./routes/project');
 
 app.use(bodyParser.json());
 app.use(express.static(publicPath)); 
@@ -25,7 +25,8 @@ app.use((req, res, next) => {
     next();
   });
 
-app.use('/groupMessage',groupMessageRouter);
+// app.use('/groupMessage',groupMessageRouter);
+app.use('/',projectRouter);
 
 db.sync()
 .then(result=>{

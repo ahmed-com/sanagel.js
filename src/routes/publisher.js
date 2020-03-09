@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const groupMessage = require('../Controllers/groupMessageController');
+const groupMessage = require('../Controllers/publisher');
 
 router.post('/join/',groupMessage.join);
 
