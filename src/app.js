@@ -12,7 +12,6 @@ const path = require('path');
 const publicPath = path.join(__dirname,'/../../client');
 const port =process.env.PORT || 3000;
 
-// const groupMessageRouter = require('./routes/groupMessageRouter');
 const projectRouter = require('./routes/project');
 
 app.use(bodyParser.json());
@@ -25,8 +24,24 @@ app.use((req, res, next) => {
     next();
   });
 
-// app.use('/groupMessage',groupMessageRouter);
+
 app.use('/',projectRouter);
+
+app.use((req,res,next)=>{
+    const err = new Error();
+    err.message = 'Page Not Found !';
+    err.status = 404;
+    next(err);
+})
+
+app.use((err,req,res,next)=>{
+    console.log(err);
+    const message = err.message || "UNEXPECTED ERROR";
+    const status = err.status || 500;
+    res.status(status).json({
+        message 
+    });
+})
 
 db.sync()
 .then(result=>{

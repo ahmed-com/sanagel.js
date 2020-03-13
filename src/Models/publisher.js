@@ -1,4 +1,4 @@
-const Sequalize = require('sequelize');
+const Sequelize = require('sequelize');
 const db = require('../utils/db');
 const io = require('../utils/socket').getIO();
 const client = require('../utils/redis').getClient();
@@ -12,31 +12,32 @@ exports.save = nameSpace =>{
     const nameSpaceESC = `${nameSpace}ESC`;
     const nameSpaceRSCs = `${nameSpace}RSCs`;
     const nameSpaceRSC = `${nameSpace}RSC`;
-    const nameSpaceUsers = `${nameSpace}Users`
+    const nameSpaceUsers = `${nameSpace}Users`;
+    const nameSpaceUserId = `${nameSpace}UserId`;
 
     const IO = io.of(`/${nameSpace}`);
 
     const subscribtions = db.define(nameSpaceRSC,{
-        room : Sequalize.STRING
+        room : Sequelize.STRING
     });
     const records = db.define(nameSpaceERC,{
         id : {
-            type : Sequalize.INTEGER,        
+            type : Sequelize.INTEGER,        
             autoIncrement : true,
             allowNull: false,
             primaryKey : true
         },
         record : {
-            type : Sequalize.JSON,
+            type : Sequelize.JSON,
             allowNull : false
         },
         room : {
-            type : Sequalize.STRING,
+            type : Sequelize.STRING,
             allowNull : false
         }
     });
     const recordSubscriber = db.define(nameSpaceESC,{
-        relation : Sequalize.STRING
+        relation : Sequelize.STRING
     });
 
     const User = db.define(nameSpaceUsers,{
@@ -67,18 +68,18 @@ exports.save = nameSpace =>{
     
             subscribe(userId){  
                 const room = this.id;              
-                return subscribtions.create({room, userId });
+                return subscribtions.create({room, nameSpaceUserId : userId });
             }
             
             unsubscribe(userId){      
                 const room = this.id;  
-                return subscribtions.destroy({where : {userId ,room}});
+                return subscribtions.destroy({where : {nameSpaceUserId : userId ,room}});
             }
     
             getSubscribers(){
                 const room = this.id;
                 // return User.findAll({include : [{model : subscribtions,where : {room}}]});
-                const query = 'SELECT `:nameSpaceUsers`.* , `:nameSpaceRSCs`.`id` AS `subscriptionId`, `:nameSpaceRSCs`.`room` AS `room`, `:nameSpaceRSCs`.`createdAt` AS `subscriptionDate` FROM `:nameSpaceUsers` AS `:nameSpaceUsers` INNER JOIN `:nameSpaceRSCs` AS `:nameSpaceRSCs` ON `:nameSpaceUsers`.`id` = `:nameSpaceRSCs`.`userId` AND `:nameSpaceRSCs`.`room` = :room ;';
+                const query = 'SELECT `:nameSpaceUsers`.* , `:nameSpaceRSCs`.`id` AS `subscriptionId`, `:nameSpaceRSCs`.`room` AS `room`, `:nameSpaceRSCs`.`createdAt` AS `subscriptionDate` FROM `:nameSpaceUsers` AS `:nameSpaceUsers` INNER JOIN `:nameSpaceRSCs` AS `:nameSpaceRSCs` ON `:nameSpaceUsers`.`id` = `:nameSpaceRSCs`.`:nameSpaceUserId` AND `:nameSpaceRSCs`.`room` = :room ;';
                 return db.query(query,{
                     replacements :{
                         room,
@@ -86,7 +87,8 @@ exports.save = nameSpace =>{
                         nameSpaceERCs,
                         nameSpaceESCs,
                         nameSpaceRSCs,
-                        nameSpaceUsers
+                        nameSpaceUsers,
+                        nameSpaceUserId
                     },
                     type : db.QueryTypes.SELECT
                 });
@@ -121,16 +123,16 @@ exports.save = nameSpace =>{
             }
     
             static getRooms(userId){
-                return subscribtions.findAll({where : {userId}})
+                return subscribtions.findAll({where : {nameSpaceUserId : userId}})
                 .then(subscribtions=> subscribtions.map(subscribtion => new Publisher(subscribtion.room)));        
             }
             
             static updateRecordStatus(userId,recordId,status){
-                return recordSubscriber.update({relation : status},{where : {userId,recordId}});
+                return recordSubscriber.update({relation : status},{where : {nameSpaceUserId : userId,recordId}});
             }
     
             static createRecordStatus(userId,recordId,status){
-                return recordSubscriber.create({recordId ,userId,relation : status});
+                return recordSubscriber.create({recordId ,nameSpaceUserId : userId,relation : status});
             }
     
             createRecord(record){
@@ -140,7 +142,7 @@ exports.save = nameSpace =>{
     
             getRecord(recordId){
                 // return records.findOne({where : {id : recordId},include : [{model : recordSubscriber , where : {relation : 'owner'}}]});
-                const query = 'SELECT `:nameSpaceERC`.`id`, `:nameSpaceERC`.`record`, `:nameSpaceERC`.`room`, `:nameSpaceERC`.`createdAt`, `:nameSpaceERC`.`updatedAt`, `:nameSpaceESCs`.`userId` AS `userId` FROM `:nameSpaceERCs` AS `:nameSpaceERC` INNER JOIN `:nameSpaceESCs` AS `:nameSpaceESCs` ON `:nameSpaceERC`.`id` = `:nameSpaceESCs`.`recordId` AND `:nameSpaceESCs`.`relation` = :relation WHERE `:nameSpaceERC`.`id` = :recordId;'
+                const query = 'SELECT `:nameSpaceERC`.`id`, `:nameSpaceERC`.`record`, `:nameSpaceERC`.`room`, `:nameSpaceERC`.`createdAt`, `:nameSpaceERC`.`updatedAt`, `:nameSpaceESCs`.`:nameSpaceUserId` AS `userId` FROM `:nameSpaceERCs` AS `:nameSpaceERC` INNER JOIN `:nameSpaceESCs` AS `:nameSpaceESCs` ON `:nameSpaceERC`.`id` = `:nameSpaceESCs`.`recordId` AND `:nameSpaceESCs`.`relation` = :relation WHERE `:nameSpaceERC`.`id` = :recordId;'
                 return db.query(query,{
                     replacements : {
                         relation : 'owner',
@@ -148,7 +150,8 @@ exports.save = nameSpace =>{
                         nameSpaceERC,
                         nameSpaceERCs,
                         nameSpaceESCs,
-                        nameSpaceRSCs
+                        nameSpaceRSCs,
+                        nameSpaceUserId
                     },
                     type : db.QueryTypes.SELECT
                 })
@@ -156,7 +159,7 @@ exports.save = nameSpace =>{
     
             getAllRecords(){
                 const room = this.id;
-                const query = 'SELECT `:nameSpaceERC`.`id`, `:nameSpaceERC`.`record`, `:nameSpaceERC`.`room`, `:nameSpaceERC`.`createdAt`, `:nameSpaceERC`.`updatedAt`, `:nameSpaceESCs`.`userId` AS `userId` FROM `:nameSpaceERCs` AS `:nameSpaceERC` INNER JOIN `:nameSpaceESCs` AS `:nameSpaceESCs` ON `:nameSpaceERC`.`id` = `:nameSpaceESCs`.`recordId` AND `:nameSpaceESCs`.`relation` = :relation WHERE `:nameSpaceERC`.`room` = :room;'
+                const query = 'SELECT `:nameSpaceERC`.`id`, `:nameSpaceERC`.`record`, `:nameSpaceERC`.`room`, `:nameSpaceERC`.`createdAt`, `:nameSpaceERC`.`updatedAt`, `:nameSpaceESCs`.`:nameSpaceUserId` AS `userId` FROM `:nameSpaceERCs` AS `:nameSpaceERC` INNER JOIN `:nameSpaceESCs` AS `:nameSpaceESCs` ON `:nameSpaceERC`.`id` = `:nameSpaceESCs`.`recordId` AND `:nameSpaceESCs`.`relation` = :relation WHERE `:nameSpaceERC`.`room` = :room;'
                 return db.query(query,{
                     replacements : {
                         relation : 'owner',
@@ -164,7 +167,8 @@ exports.save = nameSpace =>{
                         nameSpaceERC,
                         nameSpaceERCs,
                         nameSpaceESCs,
-                        nameSpaceRSCs
+                        nameSpaceRSCs,
+                        nameSpaceUserId
                     },
                     type : db.QueryTypes.SELECT
                 })

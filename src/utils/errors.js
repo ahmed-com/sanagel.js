@@ -1,11 +1,3 @@
-exports.errorCatcher = err=>{    
-    console.log(err);
-    const message = err.message || "UNEXPECTED ERROR";
-    const status = err.status || 500;
-    res.status(status).json({
-        message 
-    });
-}
 
 exports.throw400 = message=>{
 	const err = new Error();
@@ -14,10 +6,10 @@ exports.throw400 = message=>{
         throw err;
 }
 
-exports.throw401 = message=>{
+exports.throw403 = message=>{
 	const err = new Error();
         err.message = message;
-        err.status = 401;
+        err.status = 403;
         throw err;
 }
 
