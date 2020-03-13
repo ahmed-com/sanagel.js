@@ -98,11 +98,11 @@ class GroupMessage{
         })
     }
 
-    updateRecord(record){
+    static updateRecord(record){
         return records.update(record,{where : {id : record.id}});
     }
 
-    deleteRecord(recordId){
+    static deleteRecord(recordId){
         return records.destroy({where : {id : recordId}});
     }
 }

@@ -225,7 +225,7 @@ exports.updateRecord = (req,res,next)=>{
     const userId = req.body.userId;
     const groupMessage = new GroupMessage(room);
     groupMessage.getRecord(record.id)
-    .then(result=>{
+    .then(([result])=>{
         if(result.userId != userId){
             res.status(403).json({
                 message : 'Unauthorised Action'
@@ -254,7 +254,7 @@ exports.deleteRecord = (req,res,next)=>{
     const userId = req.body.userId;
     const groupMessage = new GroupMessage(room);
     groupMessage.getRecord(recordId)
-    .then(result=>{
+    .then(([result])=>{
         if(result.userId != userId){
             res.status(403).json({
                 message : 'Unauthorised Action'
