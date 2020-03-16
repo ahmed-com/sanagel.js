@@ -9,7 +9,7 @@ var pool = mysql.createPool({
 
 pool.config.namedPlaceholders = true;
 
-const excute = (query,data)=>{
+const execute = (query,data)=>{
     return new Promise((resolve,reject)=>{
         pool.execute(query, data,(err, rows)=>{
             if (err) {
@@ -21,6 +21,6 @@ const excute = (query,data)=>{
     })
 }
 
-pool.execute = excute;
+pool.myExecute = execute;
 
 module.exports = pool;

@@ -3,7 +3,6 @@ const app = express();
 const server = require('http').Server(app);
 const io = require('./utils/socket').init(server);
 const bodyParser = require('body-parser');
-const db = require('./utils/db');
 const redis = require('./utils/redis');
 
 redis.init();
@@ -43,16 +42,7 @@ app.use((err,req,res,next)=>{
     });
 })
 
-db.sync()
-.then(result=>{
-    // User.create({userName : 'one', mail : 'one@test.test'});
-    // User.create({userName : 'two', mail : 'two@test.test'});
-    // User.create({userName : 'three', mail : 'three@test.test'});
-    // User.create({userName : 'four', mail : 'fourth@test.test'});
-    server.listen(port,()=>{
-        console.log(`server is up at port ${port}`);
-    });
-})
-.catch(err=>{
-    console.log(err);
-})
+
+server.listen(port,()=>{
+    console.log(`server is up at port ${port}`);
+});

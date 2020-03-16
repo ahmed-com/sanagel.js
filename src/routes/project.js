@@ -4,8 +4,11 @@ const publisherRouter = require('./publisher');
 
 router.post('/api/create',(req,res,next)=>{
     const nameSpace = req.body.nameSpace;
-    publishers.save(nameSpace);
-    res.json({message : 'done'});
+    publishers.create(nameSpace)
+    .then(()=>{
+        res.json({message : 'done'});
+    })
+    .catch(err=> console.log(err));
 });
 
 router.use('/:nameSpace/',(req,res,next)=>{
