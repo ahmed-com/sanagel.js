@@ -6,7 +6,7 @@ exports.subscribe = (req,res,next)=>{
     const userId = req.body.userId;
     const publisher = new Publisher(room);
     publisher.subscribe(userId)
-    .then(()=>publisher.getSocketId(userId))
+    .then(()=>Publisher.getSocketId(userId))
     .then(socketId=>{         
         if(socketId){
             publisher.join(socketId);                
