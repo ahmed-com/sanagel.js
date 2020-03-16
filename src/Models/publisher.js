@@ -1,10 +1,8 @@
-const Sequelize = require('sequelize');
-const db = require('../utils/db');
+const pool = require('../utils/db');
 const io = require('../utils/socket').getIO();
 const client = require('../utils/redis').getClient();
-const publishers = {};
 
-exports.save = nameSpace =>{
+exports.get = nameSpace =>{
 
     const nameSpaceERC = `${nameSpace}ERC`;
     const nameSpaceERCs = `${nameSpace}ERCs`;
@@ -17,173 +15,161 @@ exports.save = nameSpace =>{
 
     const IO = io.of(`/${nameSpace}`);
 
-    const subscribtions = db.define(nameSpaceRSC,{
-        room : Sequelize.STRING
-    });
-    const records = db.define(nameSpaceERC,{
-        id : {
-            type : Sequelize.INTEGER,        
-            autoIncrement : true,
-            allowNull: false,
-            primaryKey : true
-        },
-        record : {
-            type : Sequelize.JSON,
-            allowNull : false
-        },
-        room : {
-            type : Sequelize.STRING,
-            allowNull : false
+    class Publisher{
+        constructor(id){
+            this.id = id;
         }
-    });
-    const recordSubscriber = db.define(nameSpaceESC,{
-        relation : Sequelize.STRING
-    });
 
-    const User = db.define(nameSpaceUsers,{
-        id : {
-            type : Sequelize.INTEGER,
-            autoIncrement : true,
-            allowNull : false,
-            primaryKey : true,
-            unique : true
-        },
-        userName : {
-            type : Sequelize.STRING,
-            allowNull : false
-        },
-        mail : Sequelize.STRING
-    });
+        subscribe(userId){  
+            const room = this.id;
+            const query = "INSERT INTO :nameSpaceRSCs (`id`,`room`,`createdAt`,`updatedAt`,:nameSpaceUserId) VALUES (DEFAULT,:room,:now,:now,:userId);"             
+            return pool.execute(query,{
+                nameSpaceRSCs,
+                nameSpaceUserId,
+                room,
+                userId,
+                // now : 
+            });
+        }
+        
+        unsubscribe(userId){      
+            const room = this.id;  
+            const query = ""
+            return pool.execute(query,{
 
-    User.hasMany(subscribtions);
-    records.hasMany(recordSubscriber,{foreignKey: 'recordId'});
-    User.hasMany(recordSubscriber);
+            });
+        }
 
-    db.sync({force : true})
-    .then(()=>{
-        class Publisher{
-            constructor(id){
-                this.id = id;
-            }
-    
-            subscribe(userId){  
-                const room = this.id;              
-                return subscribtions.create({room, nameSpaceUserId : userId });
-            }
-            
-            unsubscribe(userId){      
-                const room = this.id;  
-                return subscribtions.destroy({where : {nameSpaceUserId : userId ,room}});
-            }
-    
-            getSubscribers(){
-                const room = this.id;
-                // return User.findAll({include : [{model : subscribtions,where : {room}}]});
-                const query = 'SELECT `:nameSpaceUsers`.* , `:nameSpaceRSCs`.`id` AS `subscriptionId`, `:nameSpaceRSCs`.`room` AS `room`, `:nameSpaceRSCs`.`createdAt` AS `subscriptionDate` FROM `:nameSpaceUsers` AS `:nameSpaceUsers` INNER JOIN `:nameSpaceRSCs` AS `:nameSpaceRSCs` ON `:nameSpaceUsers`.`id` = `:nameSpaceRSCs`.`:nameSpaceUserId` AND `:nameSpaceRSCs`.`room` = :room ;';
-                return db.query(query,{
-                    replacements :{
-                        room,
-                        nameSpaceERC,
-                        nameSpaceERCs,
-                        nameSpaceESCs,
-                        nameSpaceRSCs,
-                        nameSpaceUsers,
-                        nameSpaceUserId
-                    },
-                    type : db.QueryTypes.SELECT
+        getSubscribers(){
+            const room = this.id;
+            const query = 'SELECT `:nameSpaceUsers`.* , `:nameSpaceRSCs`.`id` AS `subscriptionId`, `:nameSpaceRSCs`.`room` AS `room`, `:nameSpaceRSCs`.`createdAt` AS `subscriptionDate` FROM `:nameSpaceUsers` AS `:nameSpaceUsers` INNER JOIN `:nameSpaceRSCs` AS `:nameSpaceRSCs` ON `:nameSpaceUsers`.`id` = `:nameSpaceRSCs`.`:nameSpaceUserId` AND `:nameSpaceRSCs`.`room` = :room ;';
+            return pool.execute(query,{
+                room,                
+                nameSpaceRSCs,
+                nameSpaceUsers,
+                nameSpaceUserId                
+            });
+        }        
+
+        static getUser(userId){
+            const query = "";
+            return pool.execute(query,{
+
+            });
+        }
+
+        static getSocketId = userId =>{
+            return new Promise((resolve,reject)=>{
+                client.hget(nameSpace,userId,(err,value)=>{
+                    err ? reject(err) : resolve(value);
                 });
-            }        
-    
-            static getUser(userId){
-                return User.findByPk(userId);
-            }
-    
-            static getSocketId = userId =>{
-                return new Promise((resolve,reject)=>{
-                    client.hget(nameSpace,userId,(err,value)=>{
-                        err ? reject(err) : resolve(value);
-                    });
-                })
-            }
-    
-            static setSocketId = (socketId,userId)=>{
-                client.hset(nameSpace,userId,socketId);
-            }
-    
-            emit(event,data){
-                IO.to(this.id).emit(event,data);
-            }
-    
-            leave(socketId){
-                IO.connected[socketId].leave(this.id);
-            }
-    
-            join(socketId){
-                IO.connected[socketId].join(this.id);
-            }
-    
-            static getRooms(userId){
-                return subscribtions.findAll({where : {nameSpaceUserId : userId}})
-                .then(subscribtions=> subscribtions.map(subscribtion => new Publisher(subscribtion.room)));        
-            }
-            
-            static updateRecordStatus(userId,recordId,status){
-                return recordSubscriber.update({relation : status},{where : {nameSpaceUserId : userId,recordId}});
-            }
-    
-            static createRecordStatus(userId,recordId,status){
-                return recordSubscriber.create({recordId ,nameSpaceUserId : userId,relation : status});
-            }
-    
-            createRecord(record){
-                const room = this.id;
-                return records.create({record,room});
-            }
-    
-            getRecord(recordId){
-                // return records.findOne({where : {id : recordId},include : [{model : recordSubscriber , where : {relation : 'owner'}}]});
-                const query = 'SELECT `:nameSpaceERC`.`id`, `:nameSpaceERC`.`record`, `:nameSpaceERC`.`room`, `:nameSpaceERC`.`createdAt`, `:nameSpaceERC`.`updatedAt`, `:nameSpaceESCs`.`:nameSpaceUserId` AS `userId` FROM `:nameSpaceERCs` AS `:nameSpaceERC` INNER JOIN `:nameSpaceESCs` AS `:nameSpaceESCs` ON `:nameSpaceERC`.`id` = `:nameSpaceESCs`.`recordId` AND `:nameSpaceESCs`.`relation` = :relation WHERE `:nameSpaceERC`.`id` = :recordId;'
-                return db.query(query,{
-                    replacements : {
-                        relation : 'owner',
-                        recordId,
-                        nameSpaceERC,
-                        nameSpaceERCs,
-                        nameSpaceESCs,
-                        nameSpaceRSCs,
-                        nameSpaceUserId
-                    },
-                    type : db.QueryTypes.SELECT
-                })
-            }
-    
-            getAllRecords(){
-                const room = this.id;
-                const query = 'SELECT `:nameSpaceERC`.`id`, `:nameSpaceERC`.`record`, `:nameSpaceERC`.`room`, `:nameSpaceERC`.`createdAt`, `:nameSpaceERC`.`updatedAt`, `:nameSpaceESCs`.`:nameSpaceUserId` AS `userId` FROM `:nameSpaceERCs` AS `:nameSpaceERC` INNER JOIN `:nameSpaceESCs` AS `:nameSpaceESCs` ON `:nameSpaceERC`.`id` = `:nameSpaceESCs`.`recordId` AND `:nameSpaceESCs`.`relation` = :relation WHERE `:nameSpaceERC`.`room` = :room;'
-                return db.query(query,{
-                    replacements : {
-                        relation : 'owner',
-                        room,
-                        nameSpaceERC,
-                        nameSpaceERCs,
-                        nameSpaceESCs,
-                        nameSpaceRSCs,
-                        nameSpaceUserId
-                    },
-                    type : db.QueryTypes.SELECT
-                })
-            }
-    
-            updateRecord(record){
-                return records.update(record,{where : {id : record.id}});
-            }
-    
-            deleteRecord(recordId){
-                return records.destroy({where : {id : recordId}});
-            }
+            })
         }
-        publishers[nameSpace] = Publisher;
-    })
+
+        static setSocketId = (socketId,userId)=>{
+            client.hset(nameSpace,userId,socketId);
+        }
+
+        emit(event,data){
+            IO.to(this.id).emit(event,data);
+        }
+
+        leave(socketId){
+            IO.connected[socketId].leave(this.id);
+        }
+
+        join(socketId){
+            IO.connected[socketId].join(this.id);
+        }
+
+        static getRooms(userId){
+            const query = "";
+            return pool.execute(query,{
+
+            })
+            .then(subscribtions=> subscribtions.map(subscribtion => new Publisher(subscribtion.room)));        
+        }
+        
+        static updateRecordStatus(userId,recordId,status){
+            const query = "";
+            return pool.execute(query,{
+
+            });
+        }
+
+        static createRecordStatus(userId,recordId,status){
+            const query = "";
+            return pool.execute(query,{
+
+            });
+        }
+
+        createRecord(record){
+            const room = this.id;
+            const query = "";
+            return pool.execute(query,{
+
+            });
+        }
+
+        getRecord(recordId){
+            // return records.findOne({where : {id : recordId},include : [{model : recordSubscriber , where : {relation : 'owner'}}]});
+            const query = 'SELECT `:nameSpaceERC`.`id`, `:nameSpaceERC`.`record`, `:nameSpaceERC`.`room`, `:nameSpaceERC`.`createdAt`, `:nameSpaceERC`.`updatedAt`, `:nameSpaceESCs`.`:nameSpaceUserId` AS `userId` FROM `:nameSpaceERCs` AS `:nameSpaceERC` INNER JOIN `:nameSpaceESCs` AS `:nameSpaceESCs` ON `:nameSpaceERC`.`id` = `:nameSpaceESCs`.`recordId` AND `:nameSpaceESCs`.`relation` = :relation WHERE `:nameSpaceERC`.`id` = :recordId;'
+            return db.query(query,{
+                replacements : {
+                    relation : 'owner',
+                    recordId,
+                    nameSpaceERC,
+                    nameSpaceERCs,
+                    nameSpaceESCs,
+                    nameSpaceRSCs,
+                    nameSpaceUserId
+                },
+                type : db.QueryTypes.SELECT
+            })
+        }
+
+        getAllRecords(){
+            const room = this.id;
+            const query = 'SELECT `:nameSpaceERC`.`id`, `:nameSpaceERC`.`record`, `:nameSpaceERC`.`room`, `:nameSpaceERC`.`createdAt`, `:nameSpaceERC`.`updatedAt`, `:nameSpaceESCs`.`:nameSpaceUserId` AS `userId` FROM `:nameSpaceERCs` AS `:nameSpaceERC` INNER JOIN `:nameSpaceESCs` AS `:nameSpaceESCs` ON `:nameSpaceERC`.`id` = `:nameSpaceESCs`.`recordId` AND `:nameSpaceESCs`.`relation` = :relation WHERE `:nameSpaceERC`.`room` = :room;'
+            return db.query(query,{
+                replacements : {
+                    relation : 'owner',
+                    room,
+                    nameSpaceERC,
+                    nameSpaceERCs,
+                    nameSpaceESCs,
+                    nameSpaceRSCs,
+                    nameSpaceUserId
+                },
+                type : db.QueryTypes.SELECT
+            })
+        }
+
+        updateRecord(record){
+            const query = "";
+            return pool.execute(query,{
+
+            });
+        }
+
+        deleteRecord(recordId){
+            const query = "";
+            return pool.execute(query,{
+
+            });
+        }
+    }
+    return Publisher;
 }
 
-exports.get = nameSpace => publishers[nameSpace];
+exports.create = nameSpace => {
+    pool.execute('DROP TABLE IF EXISTS `:nameSpaceUsers`;CREATE TABLE IF NOT EXISTS `:nameSpaceUsers` (`id` INTEGER NOT NULL auto_increment UNIQUE , `userName` VARCHAR(255) NOT NULL, `mail` VARCHAR(255), `createdAt` DATETIME NOT NULL, `updatedAt` DATETIME NOT NULL, PRIMARY KEY (`id`)) ENGINE=InnoDB;DROP TABLE IF EXISTS `:nameSpaceRSCs`;CREATE TABLE IF NOT EXISTS `:nameSpaceRSCs` (`id` INTEGER NOT NULL auto_increment , `room` VARCHAR(255), `createdAt` DATETIME NOT NULL, `updatedAt` DATETIME NOT NULL, `:nameSpaceUserId` INTEGER, PRIMARY KEY (`id`), FOREIGN KEY (`:nameSpaceUserId`) REFERENCES `:nameSpaceUsers` (`id`) ON DELETE SET NULL ON UPDATE CASCADE) ENGINE=InnoDB;DROP TABLE IF EXISTS `:nameSpaceERCs`;CREATE TABLE IF NOT EXISTS `:nameSpaceERCs` (`id` INTEGER NOT NULL auto_increment , `record` JSON NOT NULL, `room` VARCHAR(255) NOT NULL, `createdAt` DATETIME NOT NULL, `updatedAt` DATETIME NOT NULL, PRIMARY KEY (`id`)) ENGINE=InnoDB;DROP TABLE IF EXISTS `:nameSpaceESCs`;CREATE TABLE IF NOT EXISTS `:nameSpaceESCs` (`id` INTEGER NOT NULL auto_increment , `relation` VARCHAR(255), `createdAt` DATETIME NOT NULL,`updatedAt` DATETIME NOT NULL, `recordId` INTEGER, `:nameSpaceUserId` INTEGER, PRIMARY KEY (`id`), FOREIGN KEY (`recordId`) REFERENCES `:nameSpaceERCs` (`id`) ON DELETE SET NULL ON UPDATE CASCADE, FOREIGN KEY (`:nameSpaceUserId`) REFERENCES `:nameSpaceUsers` (`id`) ON DELETE SET NULL ON UPDATE CASCADE) ENGINE=InnoDB;',{
+        nameSpaceERCs   : `${nameSpace}ERCs`  ,
+        nameSpaceESCs   : `${nameSpace}ESCs`  ,
+        nameSpaceRSCs   : `${nameSpace}RSCs`  ,
+        nameSpaceUserId : `${nameSpace}UserId`,
+        nameSpaceUsers  : `${nameSpace}Users`
+    })
+    .catch(err=> console.log(err));
+}
