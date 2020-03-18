@@ -1,12 +1,12 @@
-const {errorCatcher , throw400 , throw401 , throw404} = require('../utils/errorHandler');
+const { throw400 , throw403 , throw404} = require('../utils/errors');
 
 exports.subscribe = (req,res,next)=>{
-    const Publisher = req.publisher
+    const Publisher = req.Publisher
     const room = req.body.room;
     const userId = req.body.userId;
     const publisher = new Publisher(room);
     publisher.subscribe(userId)
-    .then(()=>publisher.getSocketId(userId))
+    .then(()=>Publisher.getSocketId(userId))
     .then(socketId=>{         
         if(socketId){
             publisher.join(socketId);                
@@ -24,14 +24,14 @@ exports.subscribe = (req,res,next)=>{
     .then(user=>{
         publisher.emit('subscribtion',JSON.stringify(user));// be careful of what you emit
     })
-    .catch(errorCatcher);
+    .catch(err => next(err));
 }
 
 exports.join = (req,res,next)=>{
-    const Publisher = req.publisher
+    const Publisher = req.Publisher
     const userId = req.body.userId;
     const socketId = req.body.socketId;
-    Publisher.setScocketId(socketId,userId);
+    Publisher.setSocketId(socketId,userId);
     Publisher.getRooms(userId)
     .then(rooms=>{
         res.status(200).json({
@@ -41,11 +41,11 @@ exports.join = (req,res,next)=>{
             room.join(socketId);           
         });
     })
-    .catch(errorCatcher);
+    .catch(err => next(err));
 }
 
 exports.leave = (req,res,next)=>{
-    const Publisher = req.publisher
+    const Publisher = req.Publisher
     const userId = req.body.userId;
     let socketId;
     Publisher.getSocketId(userId)
@@ -65,11 +65,11 @@ exports.leave = (req,res,next)=>{
             room.leave(socketId);                    
         });
     })
-    .catch(errorCatcher);
+    .catch(err => next(err));
 }
 
 exports.unsubscribe = (req,res,next)=>{
-    const Publisher = req.publisher
+    const Publisher = req.Publisher
     const room = req.body.room;
     const userId = req.body.userId;
     const publisher = new Publisher(room);
@@ -92,11 +92,11 @@ exports.unsubscribe = (req,res,next)=>{
     .then(user=>{
         publisher.emit('unsubscribtion',JSON.stringify(user));// be careful of what you emit
     })
-    .catch(errorCatcher);
+    .catch(err => next(err));
 }
 
 exports.remove = (req,res,next)=>{
-    const Publisher = req.publisher
+    const Publisher = req.Publisher
     const room = req.body.room;
     const removedId = req.body.removedId;
     const publisher = new Publisher(room);
@@ -114,27 +114,27 @@ exports.remove = (req,res,next)=>{
     .then(user=>{
         publisher.emit('removed',JSON.stringify(user));// be careful of what you emit
     })
-    .catch(errorCatcher);
+    .catch(err => next(err));
 }
 
 exports.getSubscribers = (req,res,next)=>{
-    const Publisher = req.publisher
+    const Publisher = req.Publisher
     const room = req.body.room;
     const publisher = new Publisher(room);
     publisher.getSubscribers()
     .then(subscribers=>{
         res.status(200).json(subscribers);//CAUTION - WARNING - BE CAREFUL
     })
-    .catch(errorCatcher);
+    .catch(err => next(err));
 }
 
 exports.creatRecord = (req,res,next)=>{
-    const Publisher = req.publisher
+    const Publisher = req.Publisher
     const room = req.body.room;
     const userId = req.body.userId;  
     const record = req.body.record;  
     const publisher = new Publisher(room);
-    publisher.createRecord(record)        
+    publisher.createRecord(record,userId)        
     .then(result=>{
         record.id = result.id;
         publisher.emit('recordCreated',JSON.stringify(record));
@@ -154,11 +154,11 @@ exports.creatRecord = (req,res,next)=>{
         })();
         await Publisher.updateRecordStatus(userId,record.id,'owner');
     })
-    .catch(errorCatcher);
+    .catch(err => next(err));
 }
 
 exports.getRecord = (req,res,next)=>{
-    const Publisher = req.publisher
+    const Publisher = req.Publisher
     const room = req.body.room;
     const recordId = req.params.recordId;
     const userId = req.body.userId;
@@ -174,11 +174,11 @@ exports.getRecord = (req,res,next)=>{
             Publisher.updateRecordStatus(userId,recordId,'seen');
         }
     })
-    .catch(errorCatcher);
+    .catch(err => next(err));
 }
 
 exports.updateRecord = (req,res,next)=>{
-    const Publisher = req.publisher
+    const Publisher = req.Publisher
     const room = req.body.room;
     const record = req.body.record;
     const userId = req.body.userId;
@@ -187,7 +187,7 @@ exports.updateRecord = (req,res,next)=>{
     .then(result=>{
         if(!result) throw404('Record Not Found');
         if(result.userId != userId){
-            throw401('Unauthorized Action');           
+            throw403('Unauthorized Action');           
         }else{
             Publisher.updateRecord(record)
             .then(()=>{
@@ -198,11 +198,11 @@ exports.updateRecord = (req,res,next)=>{
             })
         }        
     })
-    .catch(errorCatcher);
+    .catch(err => next(err));
 }
 
 exports.deleteRecord = (req,res,next)=>{
-    const Publisher = req.publisher
+    const Publisher = req.Publisher
     const room = req.body.room;
     const recordId = req.body.recordId;
     const userId = req.body.userId;
@@ -211,7 +211,7 @@ exports.deleteRecord = (req,res,next)=>{
     .then(result=>{
         if(!result) throw404('Record Not Found');
         if(result.userId != userId){
-            throw401('Unauthorized Action');
+            throw403('Unauthorized Action');
             return;
         }else{
             return Publisher.deleteRecord(recordId);            
@@ -223,11 +223,11 @@ exports.deleteRecord = (req,res,next)=>{
             message : 'Deleted successfully'
         })
     })
-    .catch(errorCatcher);
+    .catch(err => next(err));
 }
 
 exports.getAllRecords = (req,res,next)=>{
-    const Publisher = req.publisher
+    const Publisher = req.Publisher
     const room = req.body.room;
     const userId = req.body.userId;
     const publisher = new Publisher(room);
@@ -247,5 +247,5 @@ exports.getAllRecords = (req,res,next)=>{
     .then(user=>{
         publisher.emit('seen',JSON.stringify(user));/* CAUTION - WARNING - BE CAREFUL */
     })
-    .catch(errorCatcher);
+    .catch(err => next(err));
 }
