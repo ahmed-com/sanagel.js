@@ -1,17 +1,17 @@
-var mysql = require('mysql2');
+const mysql = require('mysql2');
+const toUnnamed = require('named-placeholders')();
 
-var pool = mysql.createPool({
+const pool = mysql.createPool({
     host     : "localhost",
     user     : "root",
     password : process.env.DBPASSWORD,
     database : 'testing'
 });
 
-pool.config.namedPlaceholders = true;
-
 const execute = (query,data)=>{
+    const [unnamedQuery,dataArray] = toUnnamed(query,data);
     return new Promise((resolve,reject)=>{
-        pool.execute(query, data,(err, rows)=>{
+        pool.execute(unnamedQuery, dataArray,(err, rows)=>{
             if (err) {
                 reject(err);
             } else {

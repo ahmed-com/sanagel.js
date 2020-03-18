@@ -134,7 +134,7 @@ exports.creatRecord = (req,res,next)=>{
     const userId = req.body.userId;  
     const record = req.body.record;  
     const publisher = new Publisher(room);
-    publisher.createRecord(record)        
+    publisher.createRecord(record,userId)        
     .then(result=>{
         record.id = result.id;
         publisher.emit('recordCreated',JSON.stringify(record));
