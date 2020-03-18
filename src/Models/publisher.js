@@ -106,7 +106,7 @@ exports.get = nameSpace =>{
 
         createRecord(data,userId){
             const room = this.id;
-            const query = `INSERT INTO ${nameSpaceERCs} (id,data,room,author,createdAt,updatedAt) VALUES (DEFAULT,:userId,:data,:room,:now,:now);`;
+            const query = `INSERT INTO ${nameSpaceERCs} (id,data,room,author,createdAt,updatedAt) VALUES (DEFAULT,:data,:room,:userId,:now,:now);`;
             return pool.myExecute(query,{
                 data : JSON.stringify(data),
                 room,
@@ -161,7 +161,7 @@ exports.get = nameSpace =>{
             return pool.myExecute(query,{
                 parent : room,
                 userId,
-                data,
+                data : JSON.stringify(data),
                 now : moment(Date.now()).format(`YYYY-MM-DD HH:mm:ss`)
             });
         }
@@ -197,6 +197,15 @@ exports.get = nameSpace =>{
             return pool.myExecute(query,{
                 room
             })
+        }
+
+        static createUser(userName,mail){
+            const query = `INSERT INTO ${nameSpaceUsers}(id, mail, userName, createdAt, updatedAt) VALUES (DEFAULT, :mail, :userName, :now,:now); `;
+            return pool.myExecute(query,{
+                userName,
+                mail,
+                now : moment(Date.now()).format(`YYYY-MM-DD HH:mm:ss`)
+            });
         }
     }
     return Publisher;
