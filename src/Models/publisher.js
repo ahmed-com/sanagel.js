@@ -18,10 +18,11 @@ exports.get = nameSpace =>{
             this.id = id;
         }
 
-        subscribe(userId){  
+        subscribe(userId,accessLevel){  
             const room = this.id;
-            const query = `INSERT INTO ${nameSpaceRSCs}(room,createdAt,updatedAt,user) VALUES (:room,:now,:now,:userId);`
+            const query = `INSERT INTO ${nameSpaceRSCs}(room,accessLevel,createdAt,updatedAt,user) VALUES (:room,:accessLevel,:now,:now,:userId);`
             return pool.myExecute(query,{
+                accessLevel,
                 room,
                 userId,
                 now : moment(Date.now()).format(`YYYY-MM-DD HH:mm:ss`)
@@ -39,7 +40,7 @@ exports.get = nameSpace =>{
 
         getSubscribers(){
             const room = this.id;
-            const query = `SELECT ${nameSpaceUsers}.* , ${nameSpaceRSCs}.room AS room, ${nameSpaceRSCs}.createdAt AS subscriptionDate FROM ${nameSpaceUsers} INNER JOIN ${nameSpaceRSCs} ON ${nameSpaceUsers}.id = ${nameSpaceRSCs}.:user AND ${nameSpaceRSCs}.room = :room ;`;
+            const query = `SELECT ${nameSpaceUsers}.* , ${nameSpaceRSCs}.room AS room, ${nameSpaceRSCs}.createdAt AS subscriptionDate FROM ${nameSpaceUsers} INNER JOIN ${nameSpaceRSCs} ON ${nameSpaceUsers}.id = ${nameSpaceRSCs}.user AND ${nameSpaceRSCs}.room = :room ;`;
             return pool.myExecute(query,{
                 room
             });
@@ -115,7 +116,7 @@ exports.get = nameSpace =>{
             });
         }
 
-        getRecord(recordId){            
+        getRecord(recordId){
             const query = `SELECT ${nameSpaceERCs}.id, ${nameSpaceERCs}.data, ${nameSpaceERCs}.room, ${nameSpaceERCs}.createdAt, ${nameSpaceERCs}.updatedAt, ${nameSpaceERCs}.author FROM ${nameSpaceERCs} WHERE ${nameSpaceERCs}.id = :recordId LIMIT 1 ;`
             return pool.myExecute(query,{
                 recordId
@@ -133,7 +134,7 @@ exports.get = nameSpace =>{
         updateRecord(record){
             const query = `UPDATE ${nameSpaceERCs} SET data=:data,updatedAt=:now WHERE id = :recordId ;`;
             return pool.myExecute(query,{
-                record : record.record,
+                data : record.data,
                 recordId : record.id
             });
         }
@@ -168,7 +169,7 @@ exports.get = nameSpace =>{
 
         deleteRoom(){
             const room = this.id;
-            const query = `DELETE FROM ${nameSpaceRRCs} WHERE id = :room ;`;
+            const query = `DELETE FROM ${nameSpaceRRCs} WHERE id = :room LIMIT 1;`;
             return pool.myExecute(query,{
                 room 
             });
@@ -185,7 +186,7 @@ exports.get = nameSpace =>{
 
         getData(){
             const room = this.id;
-            const query = `SELECT * FROM ${nameSpaceRRCs} WHERE id = :room;`;
+            const query = `SELECT * FROM ${nameSpaceRRCs} WHERE id = :room LIMIT 1;`;
             return pool.myExecute(query,{
                 room
             })

@@ -1,11 +1,38 @@
 const { throw400 , throw403 , throw404} = require('../utils/errors');
 
-exports.subscribe = (req,res,next)=>{
+exports.createRoom = (req,res,next)=>{//
+    const Publisher = req.Publisher;
+    const userId = req.body.userId;
+    const data = req.body.data;
+    Publisher.createRoom(userId,data)
+    .then(result=>{
+        res.status(201).json({
+            message : "Room Created Successfully",
+            room : {
+                id : result.insertId,
+                parent : null,
+                admin : userId,
+                data
+            }
+        })
+        publisher = new Publisher(result.insertId);
+        return publisher.subscribe(userId,"read-write-notify");
+    })
+    .then(()=>Publisher.getSocketId(userId))
+    .then(socketId=>{
+        if(socketId) publisher.join(socketId);
+    })
+    .catch(next)
+}
+
+exports.subscribe = (req,res,next)=>{//
     const Publisher = req.Publisher
     const room = req.body.room;
     const userId = req.body.userId;
+    const notify = req.body.notify;
+    const accessLevel = notify ? "read-write-notify" : "read-write";
     const publisher = new Publisher(room);
-    publisher.subscribe(userId)
+    publisher.subscribe(userId,accessLevel)
     .then(()=>Publisher.getSocketId(userId))
     .then(socketId=>{         
         if(socketId){
@@ -21,32 +48,38 @@ exports.subscribe = (req,res,next)=>{
         }
         return Publisher.getUser(userId);    
     })
-    .then(user=>{
+    .then(([user])=>{
         publisher.emit('subscribtion',JSON.stringify(user));// be careful of what you emit
     })
-    .catch(err => next(err));
+    .catch(next);
 }
 
-exports.join = (req,res,next)=>{
+exports.join = (req,res,next)=>{//
     const Publisher = req.Publisher
     const userId = req.body.userId;
     const socketId = req.body.socketId;
     Publisher.setSocketId(socketId,userId);
-    Publisher.getRooms(userId)
-    .then(rooms=>{
+    Publisher.getRoomsByUser(userId)
+    .then(_rooms=>{
+        rooms = _rooms;
+        return Publisher.getUser(userId);
+    })
+    .then(([user])=>{
         res.status(200).json({
             message : 'Joined successfully'        
         });
         rooms.forEach(room => {
-            room.join(socketId);           
+            room.join(socketId);
+            room.emit('online',JSON.stringify(user));// be careful of what you emit
         });
     })
-    .catch(err => next(err));
+    .catch(next);
 }
 
-exports.leave = (req,res,next)=>{
+exports.leave = (req,res,next)=>{//
     const Publisher = req.Publisher
     const userId = req.body.userId;
+    let rooms;
     let socketId;
     Publisher.getSocketId(userId)
     .then(_socketId=>{
@@ -57,18 +90,23 @@ exports.leave = (req,res,next)=>{
             throw400('something went wrong');
         }
     })    
-    .then(rooms=>{
+    .then(_rooms=>{
+        rooms = _rooms;
+        return Publisher.getUser(userId);
+    })
+    .then(([user])=>{
         res.status(200).json({
             message : 'Left successfully',                
         });
         rooms.forEach(room => {
-            room.leave(socketId);                    
+            room.join(socketId);
+            room.emit('ofline',JSON.stringify(user));// be careful of what you emit
         });
     })
-    .catch(err => next(err));
+    .catch(next);
 }
 
-exports.unsubscribe = (req,res,next)=>{
+exports.unsubscribe = (req,res,next)=>{//
     const Publisher = req.Publisher
     const room = req.body.room;
     const userId = req.body.userId;
@@ -89,18 +127,33 @@ exports.unsubscribe = (req,res,next)=>{
         }
         return Publisher.getUser(userId);
     })
-    .then(user=>{
+    .then(([user])=>{
         publisher.emit('unsubscribtion',JSON.stringify(user));// be careful of what you emit
     })
-    .catch(err => next(err));
+    .catch(next);
 }
 
-exports.remove = (req,res,next)=>{
-    const Publisher = req.Publisher
+exports.remove = (req,res,next)=>{//
+    const Publisher = req.Publisher;
+    const userId = req.body.userId;
     const room = req.body.room;
     const removedId = req.body.removedId;
     const publisher = new Publisher(room);
-    publisher.unsubscribe(removedId)
+    publisher.getData()
+    .then(([result])=>{
+        if(!result) throw404('Room Not Found');
+        if(result.admin != userId){
+            throw403('Unauthorized Action');
+            return;
+        }else{
+            return publisher.getUser(removedId);         
+        }
+    })
+    .then(([user])=>{
+        if(!user) throw404("User Not Found !");
+        publisher.emit('removed',JSON.stringify(user));// be careful of what you emit
+        return publisher.unsubscribe(removedId);
+    })
     .then(()=>{
         res.status(200).json({
             message : 'Removed successfuly'
@@ -108,35 +161,68 @@ exports.remove = (req,res,next)=>{
         return Publisher.getSocketId(removedId);
     })
     .then(socketId=>{
-        publisher.leave(socketId);
-        return Publisher.getUser(removedId);
+        if(socketId) publisher.leave(socketId);
     })
-    .then(user=>{
-        publisher.emit('removed',JSON.stringify(user));// be careful of what you emit
-    })
-    .catch(err => next(err));
+    .catch(next);
 }
 
-exports.getSubscribers = (req,res,next)=>{
-    const Publisher = req.Publisher
+exports.invite = (req,res,next) =>{//
+    const Publisher = req.Publisher;
+    const room = req.body.room;
+    const userId = req.body.userId;
+    const invitedId = req.body.invitedId;
+    const inviteAccessLevel = req.body.inviteAccessLevel;
+    const publisher = new Publisher(room);
+    publisher.getData()
+    .then(([result])=>{
+        if(!result) throw404('Room Not Found');
+        if(result.admin != userId){
+            throw403('Unauthorized Action');
+            return;
+        }else{
+            return publisher.getUser(invitedId);         
+        }
+    })
+    .then(([user])=>{
+        if(!user) throw404("User Not Found !");
+        publisher.emit('invited',JSON.stringify(user));// be careful of what you emit
+        return publisher.subscribe(removedId,inviteAccessLevel);
+    })
+    .then(()=>{
+        res.status(200).json({
+            message : 'Invited Successfuly'
+        });
+        return Publisher.getSocketId(removedId);
+    })
+    .then(socketId=>{
+        if(socketId) publisher.join(socketId);
+    })
+    .catch(next);
+}
+
+exports.getSubscribers = (req,res,next)=>{//
+    const Publisher = req.Publisher;
     const room = req.body.room;
     const publisher = new Publisher(room);
     publisher.getSubscribers()
     .then(subscribers=>{
         res.status(200).json(subscribers);//CAUTION - WARNING - BE CAREFUL
     })
-    .catch(err => next(err));
+    .catch(next);
 }
 
-exports.creatRecord = (req,res,next)=>{
+exports.creatRecord = (req,res,next)=>{//
     const Publisher = req.Publisher
     const room = req.body.room;
     const userId = req.body.userId;  
-    const record = req.body.record;  
+    const data = req.body.data;
+    let record;
     const publisher = new Publisher(room);
-    publisher.createRecord(record,userId)        
+    publisher.createRecord(data,userId)        
     .then(result=>{
-        record.id = result.id;
+        record.id = result.insertId;
+        record.author = userId;
+        record.data = data;
         publisher.emit('recordCreated',JSON.stringify(record));
         res.status(201).json({
             message : 'Record created successfully',
@@ -148,16 +234,16 @@ exports.creatRecord = (req,res,next)=>{
         await (async function(){
             for(subscriber of subscribers){
                 let socketId = await Publisher.getSocketId(subscriber.id);
-                let status = socketId ? 'seen' : 'unseen';
+                let status = socketId ? 'delivered' : 'unseen';
                 await Publisher.createRecordStatus(subscriber.id,record.id,status);
             }
         })();
-        await Publisher.updateRecordStatus(userId,record.id,'owner');
+        await Publisher.updateRecordStatus(userId,record.id,'owner');// I'm not sure about this
     })
-    .catch(err => next(err));
+    .catch(next);
 }
 
-exports.getRecord = (req,res,next)=>{
+exports.getRecord = (req,res,next)=>{//
     const Publisher = req.Publisher
     const room = req.body.room;
     const recordId = req.params.recordId;
@@ -174,43 +260,43 @@ exports.getRecord = (req,res,next)=>{
             Publisher.updateRecordStatus(userId,recordId,'seen');
         }
     })
-    .catch(err => next(err));
+    .catch(next);
 }
 
-exports.updateRecord = (req,res,next)=>{
+exports.updateRecord = (req,res,next)=>{//
     const Publisher = req.Publisher
     const room = req.body.room;
     const record = req.body.record;
     const userId = req.body.userId;
     const publisher = new Publisher(room);
     publisher.getRecord(record.id)
-    .then(result=>{
+    .then(([result])=>{
         if(!result) throw404('Record Not Found');
-        if(result.userId != userId){
+        if(result.author != userId){
             throw403('Unauthorized Action');           
         }else{
-            Publisher.updateRecord(record)
-            .then(()=>{
-                publisher.emit('recordUpdated',JSON.stringify(record));
-                res.status(202).json({
-                    message : 'Updated successfully'
-                })
-            })
+            return Publisher.updateRecord(record);
         }        
     })
-    .catch(err => next(err));
+    .then(()=>{
+        publisher.emit('recordUpdated',JSON.stringify(record));
+        res.status(202).json({
+            message : 'Updated successfully'
+        })
+    })
+    .catch(next);
 }
 
-exports.deleteRecord = (req,res,next)=>{
+exports.deleteRecord = (req,res,next)=>{//
     const Publisher = req.Publisher
     const room = req.body.room;
     const recordId = req.body.recordId;
     const userId = req.body.userId;
     const publisher = new Publisher(room);
     publisher.getRecord(recordId)
-    .then(result=>{
+    .then(([result])=>{
         if(!result) throw404('Record Not Found');
-        if(result.userId != userId){
+        if(result.author != userId){
             throw403('Unauthorized Action');
             return;
         }else{
@@ -223,29 +309,52 @@ exports.deleteRecord = (req,res,next)=>{
             message : 'Deleted successfully'
         })
     })
-    .catch(err => next(err));
+    .catch(next);
 }
 
-exports.getAllRecords = (req,res,next)=>{
+exports.getAllRecords = (req,res,next)=>{//
     const Publisher = req.Publisher
     const room = req.body.room;
     const userId = req.body.userId;
     const publisher = new Publisher(room);
-    publisher.getAllRecords()
+    publisher.getRecordsByRoom()
     .then(results=>{
         res.status(200).json({
             message : 'Records requested',
             results
         });
         results.forEach(result=>{
-            if(result.userId != userId){
+            if(result.author != userId){
                 Publisher.updateRecordStatus(userId,result.id,'seen');
             }
         });
         return Publisher.getUser(userId);        
     })
-    .then(user=>{
+    .then(([user])=>{
         publisher.emit('seen',JSON.stringify(user));/* CAUTION - WARNING - BE CAREFUL */
     })
-    .catch(err => next(err));
+    .catch(next);
+}
+
+exports.deleteRoom = (req,res,next)=>{//
+    const Publisher = req.Publisher;
+    const room = req.body.room;
+    const userId = req.body.userId;
+    publisher = new Publisher(room);
+    publisher.getData()
+    .then(([result]) => {
+        if(!result) throw404('Room Not Found');
+        if(result.admin != userId){
+            throw403('Unauthorized Action');
+            return;
+        }else{
+            return publisher.deleteRoom();            
+        } 
+    })
+    .then(()=>{
+        res.status(202).json({
+            message : 'Deleted successfully'
+        })
+    })
+    .catch(next)
 }
