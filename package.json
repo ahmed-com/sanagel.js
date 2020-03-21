@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "nodemon index.js",
+    "prod":"pm2 start index.js -i 0",
     "test": "mocha"
   },
   "keywords": [],
