@@ -53,6 +53,13 @@ exports.get = nameSpace =>{
             });
         }
 
+        static getUserByMail(mail){
+            const query = `SELECT id, hashedPW , userName, mail, createdAt, updatedAt FROM ${nameSpaceUsers} WHERE mail = :mail LIMIT 1;`;
+            return pool.myExecute(query,{
+                mail
+            });
+        }
+
         static getSocketId = userId =>{
             return new Promise((resolve,reject)=>{
                 client.hget(nameSpace,userId,(err,value)=>{
@@ -63,6 +70,10 @@ exports.get = nameSpace =>{
 
         static setSocketId = (socketId,userId)=>{
             client.hset(nameSpace,userId,socketId);
+        }
+
+        static removeSocketId(userId){
+            client.hdel(nameSpace,userId);
         }
 
         emit(event,data){
@@ -129,6 +140,14 @@ exports.get = nameSpace =>{
             return pool.myExecute(query,{
                 room
             })
+        }
+
+        static getRecordsByUser(userId,relation){
+            const query = `SELECT ${nameSpaceERCs}.id, ${nameSpaceERCs}.data, ${nameSpaceERCs}.room, ${nameSpaceERCs}.createdAt, ${nameSpaceERCs}.updatedAt, ${nameSpaceERCs}.author, ${nameSpaceESCs}.user AS userId FROM ${nameSpaceERCs} INNER JOIN ${nameSpaceESCs} ON ${nameSpaceERCs}.id = ${nameSpaceESCs}.record AND ${nameSpaceESCs}.relation = :relation WHERE ${nameSpaceESCs}.user = :userId`;
+            return pool.myExecute(query,{
+                userId,
+                relation
+            });
         }
 
         updateRecord(record){
@@ -200,14 +219,17 @@ exports.get = nameSpace =>{
             })
         }
 
-        static createUser(userName,mail){
-            const query = `INSERT INTO ${nameSpaceUsers}(id, mail, userName, createdAt, updatedAt) VALUES (DEFAULT, :mail, :userName, :now,:now); `;
+        static createUser(userName,mail,hashedPW){
+            const query = `INSERT INTO ${nameSpaceUsers}(id, mail, hashedPW , userName, createdAt, updatedAt) VALUES (DEFAULT, :mail, :hashedPW ,:userName, :now,:now); `;
             return pool.myExecute(query,{
                 userName,
                 mail,
+                hashedPW,
                 now : moment(Date.now()).format(`YYYY-MM-DD HH:mm:ss`)
             });
         }
+
+        
     }
     return Publisher;
 }
@@ -219,7 +241,7 @@ exports.create = nameSpace => {
     const nameSpaceRSCs = `T${nameSpace}RSCs`;
     const nameSpaceUsers = `T${nameSpace}Users`;
     return pool.myExecute(`DROP TABLE IF EXISTS ${nameSpaceUsers};`)
-    .then(()=> pool.myExecute(`CREATE TABLE IF NOT EXISTS ${nameSpaceUsers} (id INTEGER NOT NULL auto_increment UNIQUE , userName VARCHAR(255) NOT NULL, mail VARCHAR(255) UNIQUE, createdAt DATETIME NOT NULL, updatedAt DATETIME NOT NULL, PRIMARY KEY (id)) ENGINE=InnoDB;`))
+    .then(()=> pool.myExecute(`CREATE TABLE IF NOT EXISTS ${nameSpaceUsers} (id INTEGER NOT NULL auto_increment UNIQUE , userName VARCHAR(255) NOT NULL, hashedPW VARCHAR(255) NOT NULL, mail VARCHAR(255) UNIQUE, createdAt DATETIME NOT NULL, updatedAt DATETIME NOT NULL, PRIMARY KEY (id)) ENGINE=InnoDB;`))
     .then(()=> pool.myExecute(`DROP TABLE IF EXISTS ${nameSpaceRRCs};`))
     .then(()=> pool.myExecute(` CREATE TABLE IF NOT EXISTS ${nameSpaceRRCs} (id INTEGER NOT NULL auto_increment UNIQUE , parent INTEGER NULL, data JSON,admin INTEGER NOT NULL, createdAt DATETIME NOT NULL, updatedAt DATETIME NOT NULL, PRIMARY KEY (id), FOREIGN KEY (admin) REFERENCES ${nameSpaceUsers}(id) ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY (parent) REFERENCES ${nameSpaceRRCs}(id) ON DELETE CASCADE ON UPDATE CASCADE) ENGINE=InnoDB;`))
     .then(()=> pool.myExecute(`DROP TABLE IF EXISTS ${nameSpaceRSCs};`))

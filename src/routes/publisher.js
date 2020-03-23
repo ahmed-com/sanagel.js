@@ -1,26 +1,38 @@
 const router = require('express').Router();
-const groupMessage = require('../Controllers/publisher');
+const userRouter = require('./auth');
+const publisher = require('../Controllers/publisher');
+const is_auth = require('../middlewares/is-auth');
 
-router.post('/join/',groupMessage.join);
+router.post('/room/',is_auth,publisher.createRoom);
 
-router.post('/subscribe',groupMessage.subscribe);
+router.post('/join/',is_auth,publisher.join);
 
-router.post('/unsubscribe',groupMessage.unsubscribe);
+router.post('/invite/',is_auth,publisher.invite);
 
-router.post('/leave/',groupMessage.join);
+router.post('/subscribe',is_auth,publisher.subscribe);
 
-router.delete('/remove/',groupMessage.remove);
+router.post('/unsubscribe',is_auth,publisher.unsubscribe);
 
-router.get('/subscribers',groupMessage.getSubscribers);
+router.post('/leave/',is_auth,publisher.join);
 
-router.get('/record/',groupMessage.getAllRecords);
+router.delete('/remove/',is_auth,publisher.remove);
 
-router.get('/record/:recordId',groupMessage.getRecord);
+router.get('/subscribers',is_auth,publisher.getSubscribers);
 
-router.put('/record/',groupMessage.updateRecord);
+router.delete('/room/',is_auth,publisher.deleteRoom);
 
-router.delete('/record/',groupMessage.deleteRecord);
+router.get('/record/',is_auth,publisher.getAllRecords);
 
-router.post('/record/',groupMessage.creatRecord);
+router.get('/record/:recordId',is_auth,publisher.getRecord);
+
+router.put('/record/',is_auth,publisher.updateRecord);
+
+router.delete('/record/',is_auth,publisher.deleteRecord);
+
+router.post('/record/',is_auth,publisher.createRecord);
+
+router.put('/recordStatus/',is_auth,publisher.updateRecordStatus);
+
+router.use('/user/',userRouter);
 
 module.exports = router;

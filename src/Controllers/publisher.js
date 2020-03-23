@@ -85,7 +85,7 @@ exports.leave = (req,res,next)=>{//
     .then(_socketId=>{
         if(_socketId){
             socketId = _socketId;
-            // here you should also remove the socketId "e.g Publisher.removeSocketId(userId)"
+            Publisher.removeSocketId(userId);
             return Publisher.getRooms(userId);
         }else{
             throw400('something went wrong');
@@ -212,7 +212,7 @@ exports.getSubscribers = (req,res,next)=>{//
     .catch(next);
 }
 
-exports.creatRecord = (req,res,next)=>{//
+exports.createRecord = (req,res,next)=>{//
     const Publisher = req.Publisher
     const room = req.body.room;
     const userId = req.body.userId;  
@@ -333,6 +333,53 @@ exports.getAllRecords = (req,res,next)=>{//
     })
     .then(([user])=>{
         publisher.emit('seen',JSON.stringify(user));/* CAUTION - WARNING - BE CAREFUL */
+    })
+    .catch(next);
+}
+
+exports.getUnseenRecords = (req,res,next)=>{
+    const Publisher = req.Publisher;
+    const userId = req.body.userId;
+    let user;
+    Publisher.getRecordsByUser(userId,"unseen")
+    .then(results=>{
+        res.status(200).json({
+            message : 'Records requested',
+            results
+        });
+        results.forEach(result=>{
+            publisher.updateRecordStatus(userId,result.id,'seen');
+        });
+        return Publisher.getUser(userId);
+    })
+    .then(([_user])=>{
+        user= _user;
+        return Publisher.getRoomsByUser(userId);
+    })
+    .then(rooms=>{
+        rooms.forEach(room => {
+            room.join(socketId);
+            room.emit('seen',JSON.stringify(user));// be careful of what you emit
+        });
+    })
+    .catch(next);
+}
+
+exports.updateRecordStatus = (req,res,next)=>{//this'll be called as a confirmation of emitting records.
+    const Publisher = req.Publisher;
+    const room = req.body.room;
+    const userId = req.body.userId;
+    const recordId = req.body.recordId;
+    publisher = new Publisher(room);
+    publisher.updateRecordStatus(userId,recordId,"seen")
+    .then(()=>{
+        res.status(202).json({
+            message : 'Updated successfully'
+        });
+        return Publisher.getUser(userId);
+    })
+    .then(([user])=>{
+        publisher.emit('seen',JSON.stringify(user));// be careful of what you emit
     })
     .catch(next);
 }
