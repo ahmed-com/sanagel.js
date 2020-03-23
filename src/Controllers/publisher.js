@@ -85,6 +85,7 @@ exports.leave = (req,res,next)=>{//
     .then(_socketId=>{
         if(_socketId){
             socketId = _socketId;
+            // here you should also remove the socketId "e.g Publisher.removeSocketId(userId)"
             return Publisher.getRooms(userId);
         }else{
             throw400('something went wrong');
@@ -99,7 +100,7 @@ exports.leave = (req,res,next)=>{//
             message : 'Left successfully',                
         });
         rooms.forEach(room => {
-            room.join(socketId);
+            room.leave(socketId);
             room.emit('ofline',JSON.stringify(user));// be careful of what you emit
         });
     })
@@ -235,10 +236,10 @@ exports.creatRecord = (req,res,next)=>{//
             for(subscriber of subscribers){
                 let socketId = await Publisher.getSocketId(subscriber.id);
                 let status = socketId ? 'delivered' : 'unseen';
-                await Publisher.createRecordStatus(subscriber.id,record.id,status);
+                await publisher.createRecordStatus(subscriber.id,record.id,status);
             }
         })();
-        await Publisher.updateRecordStatus(userId,record.id,'owner');// I'm not sure about this
+        await publisher.updateRecordStatus(userId,record.id,'owner');// I'm not sure about this
     })
     .catch(next);
 }
@@ -257,7 +258,7 @@ exports.getRecord = (req,res,next)=>{//
             throw404('Record Not Found');
         }
         if(result.userId != userId){
-            Publisher.updateRecordStatus(userId,recordId,'seen');
+            publisher.updateRecordStatus(userId,recordId,'seen');
         }
     })
     .catch(next);
@@ -325,7 +326,7 @@ exports.getAllRecords = (req,res,next)=>{//
         });
         results.forEach(result=>{
             if(result.author != userId){
-                Publisher.updateRecordStatus(userId,result.id,'seen');
+                publisher.updateRecordStatus(userId,result.id,'seen');
             }
         });
         return Publisher.getUser(userId);        
