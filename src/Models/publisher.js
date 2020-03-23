@@ -85,7 +85,7 @@ exports.get = nameSpace =>{
             .then(rooms=> rooms.map(room => new Publisher(room.id)));
         }
         
-        static updateRecordStatus(userId,recordId,status){
+        updateRecordStatus(userId,recordId,status){
             const query = `UPDATE ${nameSpaceESCs} SET relation=:status,updatedAt=:now WHERE :user = :userId AND record = :recordId ;`;
             return pool.myExecute(query,{
                 status,
@@ -95,7 +95,7 @@ exports.get = nameSpace =>{
             });
         }
 
-        static createRecordStatus(userId,recordId,status){
+        createRecordStatus(userId,recordId,status){
             const query = `INSERT INTO ${nameSpaceESCs} (relation,createdAt,updatedAt,record,user) VALUES (:status,:now,:now,:recordId,:userId);`;
             return pool.myExecute(query,{
                 status,
@@ -156,7 +156,7 @@ exports.get = nameSpace =>{
             });
         }
 
-        createRoom(userId,data){
+        createNestedRoom(userId,data){
             const room = this.id;
             const query = `INSERT INTO ${nameSpaceRRCs}(id,parent,admin,data,createdAt,updatedAt) VALUES (DEFAULT,:parent,:userId,:data,:now,:now);`;
             return pool.myExecute(query,{
