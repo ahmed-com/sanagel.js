@@ -33,7 +33,6 @@ exports.signIn =async (req,res,next)=>{
         const [user] = await Publisher.getUserByMail(mail);
         if(!user) throw404('User Not Found !');
         const isEqual = await bcrypt.compare(password,user.hashedPW);
-        console.log(isEqual,user.hashedPW);
         if(!isEqual) throw401('Wrong Password');
         const userId = user.id;
         const token = jwt.sign({mail,userId},process.env.PRIVATEKEY,{expiresIn : '7d'});

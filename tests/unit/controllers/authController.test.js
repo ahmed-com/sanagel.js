@@ -114,7 +114,7 @@ describe('signIn',()=>{
         bcrypt.compare = jest.fn().mockResolvedValue(true);
         jwt.sign = jest.fn();
 
-        await signUp(req,res,next);
+        await signIn(req,res,next);
 
         expect(jwt.sign).toHaveBeenCalled();
         expect(statusCode).toBe(200);
