@@ -58,6 +58,7 @@ exports.join = (req,res,next)=>{//
     const Publisher = req.Publisher
     const userId = req.body.userId;
     const socketId = req.body.socketId;
+    let rooms;
     Publisher.setSocketId(socketId,userId);
     Publisher.getRoomsByUser(userId)
     .then(_rooms=>{

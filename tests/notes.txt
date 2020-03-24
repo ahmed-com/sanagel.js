@@ -1,0 +1,12 @@
+-----------------------My Golden Rule------------------
+if the code you want to test directly access the database "like it makes the query", then use a testing database, otherwise use stubs.
+
+-------------------------How Many Tests Does a Single Function Need?-------------------------
+obviously it should be greater than or equal to the number of excution paths "e.g. number of returns and throws".
+then each of these test can have as many assertions "i.e. expectaions" as needed about the returned result or the thrown exception.
+
+--------------------------------------------------------------------------------------------------------------
+
+- to let jest keep watching while you make changes "like nodemon", go to the script key in package.json and add "jest --watch" , instead of "jest"
+
+- jest.fn() this retuns a mock Function that only keeps track of wehter it was called or not".toHaveBeenCalled()".it also keeps track of the arguments passed to it"toHaveBeenCalledWith('the arguments you expected')". it have several properties that allows it mock any kind of behavior.

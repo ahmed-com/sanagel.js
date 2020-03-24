@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const { check } = require('express-validator');
 const auth = require('../Controllers/auth');
+const validate = require('../middlewares/validate');
 
 router.post('/signup',[
     check('mail')
@@ -23,7 +24,7 @@ router.post('/signup',[
                 throw new Error('Passwords need to match.');
             }
         })
-],auth.signUp);
+],validate,auth.signUp);
 
 router.post('/signin',auth.signIn);
 
