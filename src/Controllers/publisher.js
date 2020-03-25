@@ -1,11 +1,12 @@
 const { throw400 , throw403 , throw404} = require('../utils/errors');
+const {accessLevels , events} = require('../../config/magicStrings.json');
 
 exports.createRoom = (req,res,next)=>{//
-    const Publisher = req.Publisher;
-    const userId = req.body.userId;
-    const data = req.body.data;
-    Publisher.createRoom(userId,data)
-    .then(result=>{
+    try{
+        const Publisher = req.Publisher;
+        const userId = req.body.userId;
+        const data = req.body.data;
+        const result = await Publisher.createRoom(userId,data);
         res.status(201).json({
             message : "Room Created Successfully",
             room : {
@@ -16,13 +17,14 @@ exports.createRoom = (req,res,next)=>{//
             }
         })
         publisher = new Publisher(result.insertId);
-        return publisher.subscribe(userId,"read-write-notify");
-    })
-    .then(()=>Publisher.getSocketId(userId))
-    .then(socketId=>{
+        await publisher.subscribe(userId,accessLevels.read_write_notify);
+        const socketId = await Publisher.getSocketId(userId);
         if(socketId) publisher.join(socketId);
-    })
-    .catch(next)
+        return;
+    }catch(err){
+        next(err);
+        return;
+    }
 }
 
 exports.subscribe = (req,res,next)=>{//

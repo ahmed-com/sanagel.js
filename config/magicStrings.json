@@ -1,0 +1,20 @@
+{
+    "events" : {
+        "subscription" : "subscription",
+        "online" : "online",
+        "offline" : "offline",
+        "unsubscription" : "unsubscription",
+        "removed" : "removed",
+        "invited" : "invited",
+        "recordCreated" : "recordCreated",
+        "recordUpdated" : "recordUpdated",
+        "recordDeleted" : "recordDeleted",
+        "seen" : "seen"
+    },
+    "accessLevels" : {
+        "read_write_notify" : 0,
+        "read_write" : 1,
+        "read_notify" : 2,
+        "read_only" : 3 
+    }
+}
