@@ -1,6 +1,6 @@
 const { throw400 , throw403 , throw404} = require('../scripts/errors');
 const {accessLevels , events, relations} = require('../../config/magicStrings.json');
-const {canWrite, canInvite , canRemove, addNotify , stripNotify , can} = require('../scripts/manage-access-level');
+const {canWrite, canInvite , canRemove, addNotify, hasNotify , stripNotify} = require('../scripts/manage-access-level');
 
 exports.createRoom = (req,res,next)=>{
     try{
