@@ -241,6 +241,7 @@ exports.getRecord =async (req,res,next)=>{//
         // TO-DO CHECK FROM THE SCHEMA IF YOU SHOULD BE A SUBSCRIBER TO HAVE A READ ACCESS.
         const record =await publisher.getRecord(recordId);
         if(!record) throw404('Record Not Found');
+        if(record.room !== room) throw400('Bad Request');
         res.status(200).json({record});
         if(record.author === userId) return;
         if(relation !== relations.seen){
@@ -266,7 +267,8 @@ exports.updateRecord =async (req,res,next)=>{//
         const record = await publisher.getRecord(recordId);
         if(!record) throw404('Record Not Found');
         if(record.author != userId) throw403('Unauthorized Action');
-        await Publisher.updateRecord(recordId,data);
+        if(record.room !== room) throw400('Bad Request');
+        await publisher.updateRecord(recordId,data);
         res.status(202).json({
             message : 'Updated successfully'
         })
@@ -289,7 +291,8 @@ exports.deleteRecord =async (req,res,next)=>{//
         const record = await publisher.getRecord(recordId);
         if(!record) throw404('Record Not Found');
         if(record.author != userId) throw403('Unauthorized Action');
-        await Publisher.deleteRecord(recordId);            
+        if(record.room !== room) throw400('Bad Request');
+        await publisher.deleteRecord(recordId);            
         res.status(202).json({
             message : 'Deleted successfully'
         })
@@ -378,6 +381,7 @@ exports.seenCheck =async (req,res,next)=>{//this'll be called as a confirmation 
         if(!publisher.exists()) throw404('Room Not Found!');
         const record = await publisher.getRecord(recordId);
         if(!record) throw404('Record Not Found');
+        if(record.room !== room) throw400('Bad Request');
         const {relation} = await publisher.getRecordStatus(recordId);
         if(relation !== relations.seen){ 
             await publisher.upsertRecordStatus(userId,recordId,relations.seen);
