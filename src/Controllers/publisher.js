@@ -17,7 +17,7 @@ exports.createRoom = (req,res,next)=>{//
                 data
             }
         })
-        publisher = new Publisher(result.insertId);
+        publisher = new Publisher(insertId);
         await publisher.subscribe(userId,accessLevels.read_write_notify);
         const socketId = await Publisher.getSocketId(userId);
         if(socketId) publisher.join(socketId);
@@ -129,7 +129,7 @@ exports.remove =async (req,res,next)=>{//
         const publisher = new Publisher(room);
         const result = await publisher.getData();
         if(!result) throw404('Room Not Found!');
-        if(result.admin != userId) throw403('Unauthorized Action');
+        if(result.admin !== userId) throw403('Unauthorized Action');
         const user= await Publisher.getUser(removedId);
         if(!user) throw404("User Not Found !");
         await publisher.unsubscribe(removedId);
@@ -241,7 +241,7 @@ exports.getRecord =async (req,res,next)=>{//
         // TO-DO CHECK FROM THE SCHEMA IF YOU SHOULD BE A SUBSCRIBER TO HAVE A READ ACCESS.
         const record =await publisher.getRecord(recordId);
         if(!record) throw404('Record Not Found');
-        res.status(200).json(result);
+        res.status(200).json({record});
         if(record.author === userId) return;
         if(relation !== relations.seen){
             publisher.upsertRecordStatus(userId,recordId,relations.seen);
@@ -342,7 +342,7 @@ exports.getUnseenRecords =async (req,res,next)=>{ // this function is for notifi
         });
         records.forEach(record=>{
             let publisher = new Publisher(record.room);
-            await publisher.upsertRecordStatus(userId,result.id,relations.delivered);
+            await publisher.upsertRecordStatus(userId,record.id,relations.delivered);
             publisher.emit(events.delivered,JSON.stringify({user , record}));
         });
         return;
@@ -404,7 +404,7 @@ exports.deleteRoom =async (req,res,next)=>{//
         const publisher = new Publisher(room);
         const record = await publisher.getData();
         if(!record) throw404('Room Not Found!');
-        if(result.admin != userId) throw403('Unauthorized Action');
+        if(record.admin != userId) throw403('Unauthorized Action');
         await publisher.deleteRoom();            
         res.status(202).json({
             message : 'Deleted successfully'
