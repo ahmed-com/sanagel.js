@@ -1,12 +1,12 @@
-const { throw400 , throw403 , throw404} = require('../utils/errors');
+const { throw400 , throw403 , throw404} = require('../scripts/errors');
 const {accessLevels , events, relations} = require('../../config/magicStrings.json');
+const {canWrite, canInvite , canRemove, addNotify , stripNotify , can} = require('../scripts/manage-access-level');
 
-exports.createRoom = (req,res,next)=>{//
+exports.createRoom = (req,res,next)=>{
     try{
         const Publisher = req.Publisher;
         const userId = req.body.userId;
         const data = req.body.data;
-        // TO-DO GET THE DEFAULT ACCESS-LEVEL.
         const {insertId} = await Publisher.createRoom(userId,data);
         res.status(201).json({
             message : "Room Created Successfully",
@@ -17,8 +17,8 @@ exports.createRoom = (req,res,next)=>{//
                 data
             }
         })
-        publisher = new Publisher(insertId);
-        await publisher.subscribe(userId,accessLevels.read_write_notify);
+        const publisher = new Publisher(insertId);
+        await publisher.subscribe(userId,accessLevels.read_write_invite_remove_notify);
         const socketId = await Publisher.getSocketId(userId);
         if(socketId) publisher.join(socketId);
         return;
@@ -28,16 +28,15 @@ exports.createRoom = (req,res,next)=>{//
     }
 }
 
-exports.subscribe =async (req,res,next)=>{//
+exports.subscribe =async (req,res,next)=>{
     try{
         const Publisher = req.Publisher
         const room = req.body.room;
         const userId = req.body.userId;
-        const notify = req.body.notify;
-        // TO-DO USE THE DEFAULT ACCESS-LEVEL.
-        const accessLevel = notify ? accessLevels.read_write_notify : accessLevels.read_write;
         const publisher = new Publisher(room);
-        if(!publisher.exists()) throw404('Room Not Found');
+        const result = await publisher.getData();
+        if(!result) throw404('Room Not Found');
+        const accessLevel = result.data.defaultAccessLevel || accessLevels.read_only;
         await publisher.subscribe(userId,accessLevel);
         res.status(200).json({
             message : 'Subscribed successfuly'
@@ -53,7 +52,7 @@ exports.subscribe =async (req,res,next)=>{//
     }
 }
 
-exports.join =async (req,res,next)=>{//
+exports.join =async (req,res,next)=>{
     try{
         const Publisher = req.Publisher
         const userId = req.body.userId;
@@ -75,7 +74,7 @@ exports.join =async (req,res,next)=>{//
     }
 }
 
-exports.leave =async (req,res,next)=>{//
+exports.leave =async (req,res,next)=>{
     try{
         const Publisher = req.Publisher
         const userId = req.body.userId;
@@ -98,13 +97,14 @@ exports.leave =async (req,res,next)=>{//
     }
 }
 
-exports.unsubscribe =async (req,res,next)=>{//
+exports.unsubscribe =async (req,res,next)=>{
     try{
         const Publisher = req.Publisher
         const room = req.body.room;
         const userId = req.body.userId;
         const publisher = new Publisher(room);
-        if(!publisher.exists()) throw404('Room Not Found!');
+        const roomExists = await publisher.exists();
+        if(!roomExists) throw404('Room Not Found!');
         await publisher.unsubscribe(userId);
         res.status(200).json({
             message : 'Unsubscribed successfuly'
@@ -120,16 +120,16 @@ exports.unsubscribe =async (req,res,next)=>{//
     }
 }
 
-exports.remove =async (req,res,next)=>{//
+exports.remove =async (req,res,next)=>{
     try{
         const Publisher = req.Publisher;
         const userId = req.body.userId;
         const room = req.body.room;
         const removedId = req.body.removedId;
         const publisher = new Publisher(room);
-        const result = await publisher.getData();
-        if(!result) throw404('Room Not Found!');
-        if(result.admin !== userId) throw403('Unauthorized Action');
+        const accessLevel = await publisher.getAccessLevel(userId);
+        if(!accessLevel) throw404('Room Not Found!');
+        if(!canRemove(accessLevel)) throw403('Unauthorized Action');
         const user= await Publisher.getUser(removedId);
         if(!user) throw404("User Not Found !");
         await publisher.unsubscribe(removedId);
@@ -145,7 +145,7 @@ exports.remove =async (req,res,next)=>{//
     }
 }
 
-exports.invite = async (req,res,next) =>{//
+exports.invite = async (req,res,next) =>{
     try{
         const Publisher = req.Publisher;
         const room = req.body.room;
@@ -153,12 +153,12 @@ exports.invite = async (req,res,next) =>{//
         const invitedId = req.body.invitedId;
         const inviteAccessLevel = req.body.inviteAccessLevel;
         const publisher = new Publisher(room);
-        const result = await publisher.getData();
-        if(!result) throw404('Room Not Found');
-        if(result.admin != userId) throw403('Unauthorized Action');
+        const accessLevel = await publisher.getAccessLevel(userId);
+        if(!accessLevel) throw404('Room Not Found');
+        if(!canInvite(accessLevel,inviteAccessLevel)) throw403('Unauthorized Action');
         const user = await publisher.getUser(invitedId);         
         if(!user) throw404("User Not Found !");
-        //TO-DO CHECK THE ACCESSLEVEL GIVEN IF IT WOULD FORCE A USER TO BE NOTIFIED.
+        stripNotify(inviteAccessLevel);
         await publisher.forceSubscribe(invitedId,inviteAccessLevel);
         res.status(200).json({
             message : 'Invited Successfuly'
@@ -173,7 +173,7 @@ exports.invite = async (req,res,next) =>{//
     }
 }
 
-exports.getSubscribers =async (req,res,next)=>{//
+exports.getSubscribers =async (req,res,next)=>{
     try{
         const Publisher = req.Publisher;
         const room = req.body.room;
@@ -187,7 +187,7 @@ exports.getSubscribers =async (req,res,next)=>{//
     }
 }
 
-exports.createRecord =async (req,res,next)=>{//
+exports.createRecord =async (req,res,next)=>{
     try{
         const Publisher = req.Publisher
         const room = req.body.room;
@@ -195,9 +195,9 @@ exports.createRecord =async (req,res,next)=>{//
         const data = req.body.data;
         let record;
         const publisher = new Publisher(room);
-        if(!publisher.exists()) throw404('Room Not Found!');
         const accessLevel = publisher.getAccessLevel(userId);
-        if(accessLevel !== accessLevels.read_write && accessLevel !== accessLevels.read_write_notify) throw403('Unauthorized Action');
+        if(!accessLevel) throw404('Room Not Found!');
+        if(!canWrite(accessLevel)) throw403('Unauthorized Action');
         const {insertId} =await publisher.createRecord(data,userId);
         const record = {
             id : insertId,
@@ -221,7 +221,7 @@ exports.createRecord =async (req,res,next)=>{//
                 }
             }
         })();
-        await publisher.upsertRecordStatus(userId,record.id,'owner');// I'm not sure about this
+        await publisher.upsertRecordStatus(userId,record.id,relations.owner);// I'm not sure about this
         return;
     }catch(err){
         next(err);
@@ -229,15 +229,16 @@ exports.createRecord =async (req,res,next)=>{//
     }
 }
 
-exports.getRecord =async (req,res,next)=>{//
+exports.getRecord =async (req,res,next)=>{
     try{
         const Publisher = req.Publisher
         const room = req.body.room;
         const recordId = req.params.recordId;
         const userId = req.body.userId;
         const publisher = new Publisher(room);
-        const {relation} = await Publisher.getRecordStatus(recordId,userId);
-        if(!publisher.exists()) throw404('Room Not Found!');
+        const relation = await publisher.getRecordStatus(recordId,userId);
+        const roomExists = await publisher.exists();
+        if(!roomExists) throw404('Room Not Found!');
         // TO-DO CHECK FROM THE SCHEMA IF YOU SHOULD BE A SUBSCRIBER TO HAVE A READ ACCESS.
         const record =await publisher.getRecord(recordId);
         if(!record) throw404('Record Not Found');
@@ -255,7 +256,7 @@ exports.getRecord =async (req,res,next)=>{//
     }
 }
 
-exports.updateRecord =async (req,res,next)=>{//
+exports.updateRecord =async (req,res,next)=>{
     try{
         const Publisher = req.Publisher
         const room = req.body.room;
@@ -263,7 +264,8 @@ exports.updateRecord =async (req,res,next)=>{//
         const recordId = req.body.recordId;
         const userId = req.body.userId;
         const publisher = new Publisher(room);
-        if(!publisher.exists()) throw404('Room Not Found!');
+        const roomExists = await publisher.exists();
+        if(!roomExists) throw404('Room Not Found!');
         const record = await publisher.getRecord(recordId);
         if(!record) throw404('Record Not Found');
         if(record.author != userId) throw403('Unauthorized Action');
@@ -280,14 +282,15 @@ exports.updateRecord =async (req,res,next)=>{//
     }
 }
 
-exports.deleteRecord =async (req,res,next)=>{//
+exports.deleteRecord =async (req,res,next)=>{
     try{
         const Publisher = req.Publisher
         const room = req.body.room;
         const recordId = req.body.recordId;
         const userId = req.body.userId;
         const publisher = new Publisher(room);
-        if(!publisher.exists()) throw404('Room Not Found!');
+        const roomExists = await publisher.exists();
+        if(!roomExists) throw404('Room Not Found!');
         const record = await publisher.getRecord(recordId);
         if(!record) throw404('Record Not Found');
         if(record.author != userId) throw403('Unauthorized Action');
@@ -304,13 +307,14 @@ exports.deleteRecord =async (req,res,next)=>{//
     }
 }
 
-exports.getAllRecords =async (req,res,next)=>{//
+exports.getAllRecords =async (req,res,next)=>{
     try{
         const Publisher = req.Publisher
         const room = req.body.room;
         const userId = req.body.userId;
         const publisher = new Publisher(room);
-        if(!publisher.exists()) throw404('Room Not Found!');
+        const roomExists = await publisher.exists();
+        if(!roomExists) throw404('Room Not Found!');
         const records =await publisher.getRecordsByRoom();
         res.status(200).json({
             message : 'Records requested',
@@ -319,7 +323,7 @@ exports.getAllRecords =async (req,res,next)=>{//
         const user = await Publisher.getUser(userId);
         records.forEach(record=>{
             if(record.author !== userId){
-                const {relation} = await Publisher.getRecordStatus(record.id,userId);
+                const relation = await publisher.getRecordStatus(record.id,userId);
                 if(relation !== relations.seen){
                     publisher.upsertRecordStatus(userId,recordId,relations.seen);
                     publisher.emit(events.seen,JSON.stringify({user , record}));/* CAUTION - WARNING - BE CAREFUL */
@@ -378,11 +382,12 @@ exports.seenCheck =async (req,res,next)=>{//this'll be called as a confirmation 
         const userId = req.body.userId;
         const recordId = req.body.recordId;
         const publisher = new Publisher(room);
-        if(!publisher.exists()) throw404('Room Not Found!');
+        const roomExists = await publisher.exists();
+        if(!roomExists) throw404('Room Not Found!');
         const record = await publisher.getRecord(recordId);
         if(!record) throw404('Record Not Found');
         if(record.room !== room) throw400('Bad Request');
-        const {relation} = await publisher.getRecordStatus(recordId);
+        const relation = await publisher.getRecordStatus(recordId);
         if(relation !== relations.seen){ 
             await publisher.upsertRecordStatus(userId,recordId,relations.seen);
             res.status(202).json({
@@ -400,15 +405,15 @@ exports.seenCheck =async (req,res,next)=>{//this'll be called as a confirmation 
     }
 }
 
-exports.deleteRoom =async (req,res,next)=>{//
+exports.deleteRoom =async (req,res,next)=>{// I'm Not Sure About This At All
     try{
         const Publisher = req.Publisher;
         const room = req.body.room;
         const userId = req.body.userId;
         const publisher = new Publisher(room);
-        const record = await publisher.getData();
-        if(!record) throw404('Room Not Found!');
-        if(record.admin != userId) throw403('Unauthorized Action');
+        const result = await publisher.getData();
+        if(!result) throw404('Room Not Found!');
+        if(result.admin != userId) throw403('Unauthorized Action');
         await publisher.deleteRoom();            
         res.status(202).json({
             message : 'Deleted successfully'

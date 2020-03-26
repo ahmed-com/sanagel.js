@@ -113,7 +113,7 @@ exports.get = nameSpace =>{
             return pool.myExecute(query,{
                 room,
                 userId
-            }).then(result=>result[0]);
+            }).then(result=>result[0].accessLevel);
         }
 
         upsertRecordStatus(userId,recordId,status){
@@ -131,7 +131,7 @@ exports.get = nameSpace =>{
             return pool.myExecute(query,{
                 recordId,
                 userId
-            }).then(result=>result[0]);
+            }).then(result=>result[0].relation);
         }
 
         createRecord(data,userId){
