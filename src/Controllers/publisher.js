@@ -1,16 +1,17 @@
 const { throw400 , throw403 , throw404} = require('../utils/errors');
-const {accessLevels , events} = require('../../config/magicStrings.json');
+const {accessLevels , events, relations} = require('../../config/magicStrings.json');
 
 exports.createRoom = (req,res,next)=>{//
     try{
         const Publisher = req.Publisher;
         const userId = req.body.userId;
         const data = req.body.data;
-        const result = await Publisher.createRoom(userId,data);
+        // TO-DO GET THE DEFAULT ACCESS-LEVEL.
+        const {insertId} = await Publisher.createRoom(userId,data);
         res.status(201).json({
             message : "Room Created Successfully",
             room : {
-                id : result.insertId,
+                id :insertId,
                 parent : null,
                 admin : userId,
                 data
@@ -27,385 +28,390 @@ exports.createRoom = (req,res,next)=>{//
     }
 }
 
-exports.subscribe = (req,res,next)=>{//
-    const Publisher = req.Publisher
-    const room = req.body.room;
-    const userId = req.body.userId;
-    const notify = req.body.notify;
-    const accessLevel = notify ? "read-write-notify" : "read-write";
-    const publisher = new Publisher(room);
-    publisher.subscribe(userId,accessLevel)
-    .then(()=>Publisher.getSocketId(userId))
-    .then(socketId=>{         
-        if(socketId){
-            publisher.join(socketId);                
-            res.status(200).json({
-                message : 'Subscribed successfuly'
-            });
-        }else{
-            res.status(200).json({
-                message : 'Subscribed successfuly',
-                warning : 'Please connect with a socket'                    
-            });
-        }
-        return Publisher.getUser(userId);    
-    })
-    .then(([user])=>{
-        publisher.emit('subscribtion',JSON.stringify(user));// be careful of what you emit
-    })
-    .catch(next);
+exports.subscribe =async (req,res,next)=>{//
+    try{
+        const Publisher = req.Publisher
+        const room = req.body.room;
+        const userId = req.body.userId;
+        const notify = req.body.notify;
+        // TO-DO USE THE DEFAULT ACCESS-LEVEL.
+        const accessLevel = notify ? accessLevels.read_write_notify : accessLevels.read_write;
+        const publisher = new Publisher(room);
+        if(!publisher.exists()) throw404('Room Not Found');
+        await publisher.subscribe(userId,accessLevel);
+        res.status(200).json({
+            message : 'Subscribed successfuly'
+        });
+        const socketId = await Publisher.getSocketId(userId);
+        if(socketId) publisher.join(socketId);                
+        const user = await Publisher.getUser(userId);    
+        publisher.emit(events.subscribtion,JSON.stringify(user));// be careful of what you emit
+        return;
+    }catch(err){
+        next(err);
+        return;
+    }
 }
 
-exports.join = (req,res,next)=>{//
-    const Publisher = req.Publisher
-    const userId = req.body.userId;
-    const socketId = req.body.socketId;
-    let rooms;
-    Publisher.setSocketId(socketId,userId);
-    Publisher.getRoomsByUser(userId)
-    .then(_rooms=>{
-        rooms = _rooms;
-        return Publisher.getUser(userId);
-    })
-    .then(([user])=>{
+exports.join =async (req,res,next)=>{//
+    try{
+        const Publisher = req.Publisher
+        const userId = req.body.userId;
+        const socketId = req.body.socketId;
+        Publisher.setSocketId(socketId,userId);
         res.status(200).json({
             message : 'Joined successfully'        
         });
+        const rooms =await Publisher.getRoomsByUser(userId);
+        const user = await Publisher.getUser(userId);
         rooms.forEach(room => {
             room.join(socketId);
-            room.emit('online',JSON.stringify(user));// be careful of what you emit
+            room.emit(events.online,JSON.stringify(user));// be careful of what you emit
         });
-    })
-    .catch(next);
+        return;
+    }catch(err){
+        next(err);
+        return;
+    }
 }
 
-exports.leave = (req,res,next)=>{//
-    const Publisher = req.Publisher
-    const userId = req.body.userId;
-    let rooms;
-    let socketId;
-    Publisher.getSocketId(userId)
-    .then(_socketId=>{
-        if(_socketId){
-            socketId = _socketId;
-            Publisher.removeSocketId(userId);
-            return Publisher.getRooms(userId);
-        }else{
-            throw400('something went wrong');
-        }
-    })    
-    .then(_rooms=>{
-        rooms = _rooms;
-        return Publisher.getUser(userId);
-    })
-    .then(([user])=>{
+exports.leave =async (req,res,next)=>{//
+    try{
+        const Publisher = req.Publisher
+        const userId = req.body.userId;
+        const socketId =await Publisher.getSocketId(userId);
+        if(!socketId) throw400('something went wrong');
+        Publisher.removeSocketId(userId);
         res.status(200).json({
             message : 'Left successfully',                
         });
+        const rooms =await  Publisher.getRooms(userId);
+        const user = await Publisher.getUser(userId);
         rooms.forEach(room => {
             room.leave(socketId);
-            room.emit('ofline',JSON.stringify(user));// be careful of what you emit
+            room.emit(events.offline,JSON.stringify(user));// be careful of what you emit
         });
-    })
-    .catch(next);
+        return;
+    }catch(err){
+        next(err);
+        return;
+    }
 }
 
-exports.unsubscribe = (req,res,next)=>{//
-    const Publisher = req.Publisher
-    const room = req.body.room;
-    const userId = req.body.userId;
-    const publisher = new Publisher(room);
-    publisher.unsubscribe(userId)
-    .then(()=>Publisher.getSocketId(userId))
-    .then(socketId=>{
-        if(socketId){
-            publisher.leave(socketId);
-            res.status(200).json({
-                message : 'Unsubscribed successfuly'
-            });
-        }else{
-            res.status(200).json({
-                message : 'Unsubscribed successfuly',
-                warning : 'Please connect with a socket'
-            });
-        }
-        return Publisher.getUser(userId);
-    })
-    .then(([user])=>{
-        publisher.emit('unsubscribtion',JSON.stringify(user));// be careful of what you emit
-    })
-    .catch(next);
+exports.unsubscribe =async (req,res,next)=>{//
+    try{
+        const Publisher = req.Publisher
+        const room = req.body.room;
+        const userId = req.body.userId;
+        const publisher = new Publisher(room);
+        if(!publisher.exists()) throw404('Room Not Found!');
+        await publisher.unsubscribe(userId);
+        res.status(200).json({
+            message : 'Unsubscribed successfuly'
+        });
+        const socketId = await Publisher.getSocketId(userId);
+        if(socketId) publisher.leave(socketId);
+        const user = await Publisher.getUser(userId);
+        publisher.emit(events.unsubscribtion,JSON.stringify(user));// be careful of what you emit
+        return;
+    }catch(err){
+        next(err);
+        return;
+    }
 }
 
-exports.remove = (req,res,next)=>{//
-    const Publisher = req.Publisher;
-    const userId = req.body.userId;
-    const room = req.body.room;
-    const removedId = req.body.removedId;
-    const publisher = new Publisher(room);
-    publisher.getData()
-    .then(([result])=>{
-        if(!result) throw404('Room Not Found');
-        if(result.admin != userId){
-            throw403('Unauthorized Action');
-            return;
-        }else{
-            return publisher.getUser(removedId);         
-        }
-    })
-    .then(([user])=>{
+exports.remove =async (req,res,next)=>{//
+    try{
+        const Publisher = req.Publisher;
+        const userId = req.body.userId;
+        const room = req.body.room;
+        const removedId = req.body.removedId;
+        const publisher = new Publisher(room);
+        const result = await publisher.getData();
+        if(!result) throw404('Room Not Found!');
+        if(result.admin != userId) throw403('Unauthorized Action');
+        const user= await Publisher.getUser(removedId);
         if(!user) throw404("User Not Found !");
-        publisher.emit('removed',JSON.stringify(user));// be careful of what you emit
-        return publisher.unsubscribe(removedId);
-    })
-    .then(()=>{
+        await publisher.unsubscribe(removedId);
         res.status(200).json({
             message : 'Removed successfuly'
         });
-        return Publisher.getSocketId(removedId);
-    })
-    .then(socketId=>{
+        const socketId = await Publisher.getSocketId(removedId);
         if(socketId) publisher.leave(socketId);
-    })
-    .catch(next);
+        return;
+    }catch(err){
+        next(err);
+        return;
+    }
 }
 
-exports.invite = (req,res,next) =>{//
-    const Publisher = req.Publisher;
-    const room = req.body.room;
-    const userId = req.body.userId;
-    const invitedId = req.body.invitedId;
-    const inviteAccessLevel = req.body.inviteAccessLevel;
-    const publisher = new Publisher(room);
-    publisher.getData()
-    .then(([result])=>{
+exports.invite = async (req,res,next) =>{//
+    try{
+        const Publisher = req.Publisher;
+        const room = req.body.room;
+        const userId = req.body.userId;
+        const invitedId = req.body.invitedId;
+        const inviteAccessLevel = req.body.inviteAccessLevel;
+        const publisher = new Publisher(room);
+        const result = await publisher.getData();
         if(!result) throw404('Room Not Found');
-        if(result.admin != userId){
-            throw403('Unauthorized Action');
-            return;
-        }else{
-            return publisher.getUser(invitedId);         
-        }
-    })
-    .then(([user])=>{
+        if(result.admin != userId) throw403('Unauthorized Action');
+        const user = await publisher.getUser(invitedId);         
         if(!user) throw404("User Not Found !");
-        publisher.emit('invited',JSON.stringify(user));// be careful of what you emit
-        return publisher.subscribe(removedId,inviteAccessLevel);
-    })
-    .then(()=>{
+        //TO-DO CHECK THE ACCESSLEVEL GIVEN IF IT WOULD FORCE A USER TO BE NOTIFIED.
+        await publisher.forceSubscribe(invitedId,inviteAccessLevel);
         res.status(200).json({
             message : 'Invited Successfuly'
         });
-        return Publisher.getSocketId(removedId);
-    })
-    .then(socketId=>{
+        publisher.emit(events.invited,JSON.stringify(user));// be careful of what you emit
+        const socketId = await Publisher.getSocketId(invitedId);
         if(socketId) publisher.join(socketId);
-    })
-    .catch(next);
+        return;
+    }catch(err){
+        next(err);
+        return;
+    }
 }
 
-exports.getSubscribers = (req,res,next)=>{//
-    const Publisher = req.Publisher;
-    const room = req.body.room;
-    const publisher = new Publisher(room);
-    publisher.getSubscribers()
-    .then(subscribers=>{
+exports.getSubscribers =async (req,res,next)=>{//
+    try{
+        const Publisher = req.Publisher;
+        const room = req.body.room;
+        const publisher = new Publisher(room);
+        const subscribers= await publisher.getSubscribers();
         res.status(200).json(subscribers);//CAUTION - WARNING - BE CAREFUL
-    })
-    .catch(next);
+        return;
+    }catch(err){
+        next(err);
+        return;
+    }
 }
 
-exports.createRecord = (req,res,next)=>{//
-    const Publisher = req.Publisher
-    const room = req.body.room;
-    const userId = req.body.userId;  
-    const data = req.body.data;
-    let record;
-    const publisher = new Publisher(room);
-    publisher.createRecord(data,userId)        
-    .then(result=>{
-        record.id = result.insertId;
-        record.author = userId;
-        record.data = data;
-        publisher.emit('recordCreated',JSON.stringify(record));
+exports.createRecord =async (req,res,next)=>{//
+    try{
+        const Publisher = req.Publisher
+        const room = req.body.room;
+        const userId = req.body.userId;  
+        const data = req.body.data;
+        let record;
+        const publisher = new Publisher(room);
+        if(!publisher.exists()) throw404('Room Not Found!');
+        const accessLevel = publisher.getAccessLevel(userId);
+        if(accessLevel !== accessLevels.read_write && accessLevel !== accessLevels.read_write_notify) throw403('Unauthorized Action');
+        const {insertId} =await publisher.createRecord(data,userId);
+        const record = {
+            id : insertId,
+            author : userId,
+            data
+        };
         res.status(201).json({
             message : 'Record created successfully',
             record
         });
-        return publisher.getSubscribers();
-    })
-    .then(async function(subscribers){
+        publisher.emit(events.recordCreated,JSON.stringify(record));
+        const subscribers = await publisher.getSubscribers();
         await (async function(){
             for(subscriber of subscribers){
                 let socketId = await Publisher.getSocketId(subscriber.id);
-                let status = socketId ? 'delivered' : 'unseen';
-                await publisher.createRecordStatus(subscriber.id,record.id,status);
+                if(socketId){
+                    await publisher.upsertRecordStatus(subscriber.id,record.id,relations.delivered);
+                    publisher.emit(events.delivered , JSON.stringify({user , record}));
+                }else{
+                    await publisher.upsertRecordStatus(subscriber.id,record.id,relations.unseen);
+                }
             }
         })();
-        await publisher.updateRecordStatus(userId,record.id,'owner');// I'm not sure about this
-    })
-    .catch(next);
+        await publisher.upsertRecordStatus(userId,record.id,'owner');// I'm not sure about this
+        return;
+    }catch(err){
+        next(err);
+        return;
+    }
 }
 
-exports.getRecord = (req,res,next)=>{//
-    const Publisher = req.Publisher
-    const room = req.body.room;
-    const recordId = req.params.recordId;
-    const userId = req.body.userId;
-    const publisher = new Publisher(room);
-    publisher.getRecord(recordId)
-    .then(([result])=>{
-        if(result){
-            res.status(200).json(result);
-        }else{
-            throw404('Record Not Found');
+exports.getRecord =async (req,res,next)=>{//
+    try{
+        const Publisher = req.Publisher
+        const room = req.body.room;
+        const recordId = req.params.recordId;
+        const userId = req.body.userId;
+        const publisher = new Publisher(room);
+        const {relation} = await Publisher.getRecordStatus(recordId,userId);
+        if(!publisher.exists()) throw404('Room Not Found!');
+        // TO-DO CHECK FROM THE SCHEMA IF YOU SHOULD BE A SUBSCRIBER TO HAVE A READ ACCESS.
+        const record =await publisher.getRecord(recordId);
+        if(!record) throw404('Record Not Found');
+        res.status(200).json(result);
+        if(record.author === userId) return;
+        if(relation !== relations.seen){
+            publisher.upsertRecordStatus(userId,recordId,relations.seen);
+            publisher.emit(events.seen,JSON.stringify({user , record}));/* CAUTION - WARNING - BE CAREFUL */
         }
-        if(result.userId != userId){
-            publisher.updateRecordStatus(userId,recordId,'seen');
-        }
-    })
-    .catch(next);
+        return;
+    }catch(err){
+        next(err);
+        return;
+    }
 }
 
-exports.updateRecord = (req,res,next)=>{//
-    const Publisher = req.Publisher
-    const room = req.body.room;
-    const record = req.body.record;
-    const userId = req.body.userId;
-    const publisher = new Publisher(room);
-    publisher.getRecord(record.id)
-    .then(([result])=>{
-        if(!result) throw404('Record Not Found');
-        if(result.author != userId){
-            throw403('Unauthorized Action');           
-        }else{
-            return Publisher.updateRecord(record);
-        }        
-    })
-    .then(()=>{
-        publisher.emit('recordUpdated',JSON.stringify(record));
+exports.updateRecord =async (req,res,next)=>{//
+    try{
+        const Publisher = req.Publisher
+        const room = req.body.room;
+        const data = req.body.data;
+        const recordId = req.body.recordId;
+        const userId = req.body.userId;
+        const publisher = new Publisher(room);
+        if(!publisher.exists()) throw404('Room Not Found!');
+        const record = await publisher.getRecord(recordId);
+        if(!record) throw404('Record Not Found');
+        if(record.author != userId) throw403('Unauthorized Action');
+        await Publisher.updateRecord(recordId,data);
         res.status(202).json({
             message : 'Updated successfully'
         })
-    })
-    .catch(next);
+        publisher.emit(events.recordUpdated,JSON.stringify(record));
+        return;
+    }catch(err){
+        next(err);
+        return;
+    }
 }
 
-exports.deleteRecord = (req,res,next)=>{//
-    const Publisher = req.Publisher
-    const room = req.body.room;
-    const recordId = req.body.recordId;
-    const userId = req.body.userId;
-    const publisher = new Publisher(room);
-    publisher.getRecord(recordId)
-    .then(([result])=>{
-        if(!result) throw404('Record Not Found');
-        if(result.author != userId){
-            throw403('Unauthorized Action');
-            return;
-        }else{
-            return Publisher.deleteRecord(recordId);            
-        }        
-    })
-    .then(()=>{
-        publisher.emit('recordDeleted',recordId);
+exports.deleteRecord =async (req,res,next)=>{//
+    try{
+        const Publisher = req.Publisher
+        const room = req.body.room;
+        const recordId = req.body.recordId;
+        const userId = req.body.userId;
+        const publisher = new Publisher(room);
+        if(!publisher.exists()) throw404('Room Not Found!');
+        const record = await publisher.getRecord(recordId);
+        if(!record) throw404('Record Not Found');
+        if(record.author != userId) throw403('Unauthorized Action');
+        await Publisher.deleteRecord(recordId);            
         res.status(202).json({
             message : 'Deleted successfully'
         })
-    })
-    .catch(next);
+        publisher.emit(events.recordDeleted,recordId);
+        return;
+    }catch(err){
+        next(err);
+        return;
+    }
 }
 
-exports.getAllRecords = (req,res,next)=>{//
-    const Publisher = req.Publisher
-    const room = req.body.room;
-    const userId = req.body.userId;
-    const publisher = new Publisher(room);
-    publisher.getRecordsByRoom()
-    .then(results=>{
+exports.getAllRecords =async (req,res,next)=>{//
+    try{
+        const Publisher = req.Publisher
+        const room = req.body.room;
+        const userId = req.body.userId;
+        const publisher = new Publisher(room);
+        if(!publisher.exists()) throw404('Room Not Found!');
+        const records =await publisher.getRecordsByRoom();
         res.status(200).json({
             message : 'Records requested',
-            results
+            records
         });
-        results.forEach(result=>{
-            if(result.author != userId){
-                publisher.updateRecordStatus(userId,result.id,'seen');
+        const user = await Publisher.getUser(userId);
+        records.forEach(record=>{
+            if(record.author !== userId){
+                const {relation} = await Publisher.getRecordStatus(record.id,userId);
+                if(relation !== relations.seen){
+                    publisher.upsertRecordStatus(userId,recordId,relations.seen);
+                    publisher.emit(events.seen,JSON.stringify({user , record}));/* CAUTION - WARNING - BE CAREFUL */
+                }
             }
         });
-        return Publisher.getUser(userId);        
-    })
-    .then(([user])=>{
-        publisher.emit('seen',JSON.stringify(user));/* CAUTION - WARNING - BE CAREFUL */
-    })
-    .catch(next);
+        return;
+    }catch(err){
+        next(err);
+        return;
+    }
 }
 
-exports.getUnseenRecords = (req,res,next)=>{
-    const Publisher = req.Publisher;
-    const userId = req.body.userId;
-    let user;
-    Publisher.getRecordsByUser(userId,"unseen")
-    .then(results=>{
+exports.getUnseenRecords =async (req,res,next)=>{ // this function is for notification display
+    try{
+        const Publisher = req.Publisher;
+        const userId = req.body.userId;
+        const records = await Publisher.getRecordsByUser(userId,relations.unseen);
+        const user = Publisher.getUser(userId);
         res.status(200).json({
             message : 'Records requested',
-            results
+            records
         });
-        results.forEach(result=>{
-            publisher.updateRecordStatus(userId,result.id,'seen');
+        records.forEach(record=>{
+            let publisher = new Publisher(record.room);
+            await publisher.upsertRecordStatus(userId,result.id,relations.delivered);
+            publisher.emit(events.delivered,JSON.stringify({user , record}));
         });
-        return Publisher.getUser(userId);
-    })
-    .then(([_user])=>{
-        user= _user;
-        return Publisher.getRoomsByUser(userId);
-    })
-    .then(rooms=>{
-        rooms.forEach(room => {
-            room.join(socketId);
-            room.emit('seen',JSON.stringify(user));// be careful of what you emit
-        });
-    })
-    .catch(next);
+        return;
+    }catch(err){
+        next(err);
+        return;
+    }
 }
 
-exports.updateRecordStatus = (req,res,next)=>{//this'll be called as a confirmation of emitting records.
-    const Publisher = req.Publisher;
-    const room = req.body.room;
-    const userId = req.body.userId;
-    const recordId = req.body.recordId;
-    publisher = new Publisher(room);
-    publisher.updateRecordStatus(userId,recordId,"seen")
-    .then(()=>{
-        res.status(202).json({
-            message : 'Updated successfully'
+exports.getUserRecords = async (req,res,next)=>{
+    try{
+        const Publisher = req.Publisher;
+        const userId = req.body.userId;
+        const records = await Publisher.getRecordsByUser(userId,relations.owner);
+        res.status(200).json({
+            message : 'Records requested',
+            records
         });
-        return Publisher.getUser(userId);
-    })
-    .then(([user])=>{
-        publisher.emit('seen',JSON.stringify(user));// be careful of what you emit
-    })
-    .catch(next);
+        return;
+    }catch(err){
+        next(err);
+        return;
+    }
 }
 
-exports.deleteRoom = (req,res,next)=>{//
-    const Publisher = req.Publisher;
-    const room = req.body.room;
-    const userId = req.body.userId;
-    publisher = new Publisher(room);
-    publisher.getData()
-    .then(([result]) => {
-        if(!result) throw404('Room Not Found');
-        if(result.admin != userId){
-            throw403('Unauthorized Action');
+exports.seenCheck =async (req,res,next)=>{//this'll be called as a confirmation of emitting records, or answering to notifications.
+    try{
+        const Publisher = req.Publisher;
+        const room = req.body.room;
+        const userId = req.body.userId;
+        const recordId = req.body.recordId;
+        const publisher = new Publisher(room);
+        if(!publisher.exists()) throw404('Room Not Found!');
+        const record = await publisher.getRecord(recordId);
+        if(!record) throw404('Record Not Found');
+        const {relation} = await publisher.getRecordStatus(recordId);
+        if(relation !== relations.seen){ 
+            await publisher.upsertRecordStatus(userId,recordId,relations.seen);
+            res.status(202).json({
+                message : 'Seen Successfully'
+            });
+            const user =await Publisher.getUser(userId);
+            publisher.emit(events.seen,JSON.stringify({user,record}));// be careful of what you emit
             return;
         }else{
-            return publisher.deleteRoom();            
-        } 
-    })
-    .then(()=>{
+            throw400('Bad Request');
+        }
+    }catch(err){
+        next(err);
+        return;
+    }
+}
+
+exports.deleteRoom =async (req,res,next)=>{//
+    try{
+        const Publisher = req.Publisher;
+        const room = req.body.room;
+        const userId = req.body.userId;
+        const publisher = new Publisher(room);
+        const record = await publisher.getData();
+        if(!record) throw404('Room Not Found!');
+        if(result.admin != userId) throw403('Unauthorized Action');
+        await publisher.deleteRoom();            
         res.status(202).json({
             message : 'Deleted successfully'
-        })
-    })
-    .catch(next)
+        });
+        return;
+    }catch(err){
+        next(err);
+        return;
+    }
 }

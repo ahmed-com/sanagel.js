@@ -20,7 +20,18 @@ exports.get = nameSpace =>{
 
         subscribe(userId,accessLevel){  
             const room = this.id;
-            const query = `INSERT INTO ${nameSpaceRSCs}(room,accessLevel,createdAt,updatedAt,user) VALUES (:room,:accessLevel,:now,:now,:userId);`
+            const query = `INSERT IGNORE INTO ${nameSpaceRSCs}(room,accessLevel,createdAt,updatedAt,user) VALUES (:room,:accessLevel,:now,:now,:userId);`
+            return pool.myExecute(query,{
+                accessLevel,
+                room,
+                userId,
+                now : moment(Date.now()).format(`YYYY-MM-DD HH:mm:ss`)
+            });
+        }
+
+        forceSubscribe(userId,accessLevel){
+            const room = this.id;
+            const query = `INSERT INTO ${nameSpaceRSCs}(room,accessLevel,createdAt,updatedAt,user) VALUES (:room,:accessLevel,:now,:now,:userId) ON DUPLICATE KEY UPDATE accessLevel = :accessLevel ;`;
             return pool.myExecute(query,{
                 accessLevel,
                 room,
@@ -50,7 +61,7 @@ exports.get = nameSpace =>{
             const query = `SELECT id, userName, mail, createdAt, updatedAt FROM ${nameSpaceUsers} WHERE id = :userId LIMIT 1;`;
             return pool.myExecute(query,{
                 userId
-            });
+            }).then(result=>result[0]);
         }
 
         static getUserByMail(mail){
@@ -95,25 +106,32 @@ exports.get = nameSpace =>{
             })
             .then(rooms=> rooms.map(room => new Publisher(room.id)));
         }
-        
-        updateRecordStatus(userId,recordId,status){
-            const query = `UPDATE ${nameSpaceESCs} SET relation=:status,updatedAt=:now WHERE :user = :userId AND record = :recordId ;`;
+
+        getAccessLevel(userId){
+            const room = this.id;
+            const query = `SELECT accessLevel FROM ${nameSpaceRSCs} WHERE room = :room AND user = :userId LIMIT 1;`;
             return pool.myExecute(query,{
-                status,
-                now : moment(Date.now()).format(`YYYY-MM-DD HH:mm:ss`),
-                userId,
-                recordId
-            });
+                room,
+                userId
+            }).then(result=>result[0]);
         }
 
-        createRecordStatus(userId,recordId,status){
-            const query = `INSERT INTO ${nameSpaceESCs} (relation,createdAt,updatedAt,record,user) VALUES (:status,:now,:now,:recordId,:userId);`;
+        upsertRecordStatus(userId,recordId,status){
+            const query = `INSERT INTO ${nameSpaceESCs} (relation,createdAt,updatedAt,record,user) VALUES (:status,:now,:now,:recordId,:userId) ON DUPLICATE KEY UPDATE relation = :status , updatedAt = :now ;`;
             return pool.myExecute(query,{
                 status,
                 recordId,
                 userId,
                 now : moment(Date.now()).format(`YYYY-MM-DD HH:mm:ss`)
             });
+        }
+
+        getRecordStatus(recordId,userId){
+            const query = `SELECT relation FROM ${nameSpaceESCs} WHERE record = :recordId AND user = :userId LIMIT 1 ;`;
+            return pool.myExecute(query,{
+                recordId,
+                userId
+            }).then(result=>result[0]);
         }
 
         createRecord(data,userId){
@@ -131,7 +149,7 @@ exports.get = nameSpace =>{
             const query = `SELECT ${nameSpaceERCs}.id, ${nameSpaceERCs}.data, ${nameSpaceERCs}.room, ${nameSpaceERCs}.createdAt, ${nameSpaceERCs}.updatedAt, ${nameSpaceERCs}.author FROM ${nameSpaceERCs} WHERE ${nameSpaceERCs}.id = :recordId LIMIT 1 ;`
             return pool.myExecute(query,{
                 recordId
-            })
+            }).then(result=>result[0]);
         }
 
         getRecordsByRoom(){
@@ -150,11 +168,12 @@ exports.get = nameSpace =>{
             });
         }
 
-        updateRecord(record){
+        updateRecord(recordId,data){
             const query = `UPDATE ${nameSpaceERCs} SET data=:data,updatedAt=:now WHERE id = :recordId ;`;
             return pool.myExecute(query,{
-                data : record.data,
-                recordId : record.id
+                data ,
+                recordId,
+                now :  moment(Date.now()).format(`YYYY-MM-DD HH:mm:ss`)
             });
         }
 
@@ -199,7 +218,8 @@ exports.get = nameSpace =>{
             const query = `UPDATE ${nameSpaceRRCs} SET data=:data,updatedAt=:now WHERE id = :room ;`;
             return pool.myExecute(query,{
                 room,
-                data
+                data,
+                now :  moment(Date.now()).format(`YYYY-MM-DD HH:mm:ss`)
             });
         }
 
@@ -208,7 +228,15 @@ exports.get = nameSpace =>{
             const query = `SELECT * FROM ${nameSpaceRRCs} WHERE id = :room LIMIT 1;`;
             return pool.myExecute(query,{
                 room
-            })
+            }).then(result=>result[0]);
+        }
+
+        exists(){
+            const room = this.id;
+            const query = `SELECT EXISTS( SELECT * FROM ${nameSpaceRRCs} WHERE id = :room LIMIT 1 )`;
+            return pool.myExecute(query,{
+                room
+            }).then(result => Object.values(result[0])[0]);
         }
 
         getSubscribersCount(){
@@ -250,5 +278,5 @@ exports.create = nameSpace => {
     .then(()=> pool.myExecute(`DROP TABLE IF EXISTS ${nameSpaceERCs};`))
     .then(()=> pool.myExecute(`CREATE TABLE IF NOT EXISTS ${nameSpaceERCs} (id INTEGER NOT NULL UNSIGNED auto_increment UNIQUE , data JSON NOT NULL, room INTEGER NOT NULL,author INTEGER NOT NULL, createdAt DATETIME NOT NULL, updatedAt DATETIME NOT NULL, PRIMARY KEY (id), FOREIGN KEY (room) REFERENCES ${nameSpaceRRCs} (id) ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY (author) REFERENCES ${nameSpaceUsers}(id) ON DELETE CASCADE ON UPDATE CASCADE) ENGINE=InnoDB;`))
     .then(()=> pool.myExecute(`DROP TABLE IF EXISTS ${nameSpaceESCs};`))
-    .then(()=> pool.myExecute(`CREATE TABLE IF NOT EXISTS ${nameSpaceESCs} (relation VARCHAR(255), record INTEGER NOT NULL, user INTEGER NOT NULL, createdAt DATETIME NOT NULL, updatedAt DATETIME NOT NULL, PRIMARY KEY (record,user), FOREIGN KEY (record) REFERENCES ${nameSpaceERCs} (id), FOREIGN KEY (user) REFERENCES ${nameSpaceUsers} (id)) ENGINE=InnoDB;`));
+    .then(()=> pool.myExecute(`CREATE TABLE IF NOT EXISTS ${nameSpaceESCs} (relation TINYINT, record INTEGER NOT NULL, user INTEGER NOT NULL, createdAt DATETIME NOT NULL, updatedAt DATETIME NOT NULL, PRIMARY KEY (record,user), FOREIGN KEY (record) REFERENCES ${nameSpaceERCs} (id), FOREIGN KEY (user) REFERENCES ${nameSpaceUsers} (id)) ENGINE=InnoDB;`));
 }

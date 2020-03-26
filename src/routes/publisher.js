@@ -31,7 +31,7 @@ router.delete('/record/',is_auth,publisher.deleteRecord);
 
 router.post('/record/',is_auth,publisher.createRecord);
 
-router.put('/recordStatus/',is_auth,publisher.updateRecordStatus);
+router.put('/recordStatus/',is_auth,publisher.seenCheck);
 
 router.use('/user/',userRouter);
 

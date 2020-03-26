@@ -9,12 +9,19 @@
         "recordCreated" : "recordCreated",
         "recordUpdated" : "recordUpdated",
         "recordDeleted" : "recordDeleted",
-        "seen" : "seen"
+        "seen" : "seen",
+        "delivered" : "delivered"
     },
     "accessLevels" : {
         "read_write_notify" : 0,
         "read_write" : 1,
         "read_notify" : 2,
         "read_only" : 3 
+    },
+    "relations":{
+        "owner" : 0,
+        "seen" : 1,
+        "delivered" : 2,
+        "unseen" : 3
     }
 }
