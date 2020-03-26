@@ -36,6 +36,7 @@ exports.subscribe =async (req,res,next)=>{
         const publisher = new Publisher(room);
         const result = await publisher.getData();
         if(!result) throw404('Room Not Found');
+        if(result.channel && result.channel.private) throw403('Unauthorized Action');
         const accessLevel = result.data.defaultAccessLevel || accessLevels.read_only;
         await publisher.subscribe(userId,accessLevel);
         res.status(200).json({
@@ -237,9 +238,12 @@ exports.getRecord =async (req,res,next)=>{
         const userId = req.body.userId;
         const publisher = new Publisher(room);
         const relation = await publisher.getRecordStatus(recordId,userId);
-        const roomExists = await publisher.exists();
-        if(!roomExists) throw404('Room Not Found!');
-        // TO-DO CHECK FROM THE SCHEMA IF YOU SHOULD BE A SUBSCRIBER TO HAVE A READ ACCESS.
+        const data = await publisher.getData();
+        if(!data) throw404('Room Not Found!');
+        if(data.channel){
+            const isSubscriber = await publisher.isSubscriber(userId);
+            if(!isSubscriber) throw403('Unauthorized Action');
+        }
         const record =await publisher.getRecord(recordId);
         if(!record) throw404('Record Not Found');
         if(record.room !== room) throw400('Bad Request');
@@ -313,8 +317,12 @@ exports.getAllRecords =async (req,res,next)=>{
         const room = req.body.room;
         const userId = req.body.userId;
         const publisher = new Publisher(room);
-        const roomExists = await publisher.exists();
-        if(!roomExists) throw404('Room Not Found!');
+        const data = await publisher.getData();
+        if(!data) throw404('Room Not Found!');
+        if(data.channel){
+            const isSubscriber = publisher.isSubscriber(userId);
+            if(!isSubscriber) throw403('Unauthorized Action');
+        }
         const records =await publisher.getRecordsByRoom();
         res.status(200).json({
             message : 'Records requested',

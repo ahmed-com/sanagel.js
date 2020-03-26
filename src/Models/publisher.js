@@ -116,6 +116,14 @@ exports.get = nameSpace =>{
             }).then(result=>result[0].accessLevel);
         }
 
+        isSubscriber(userId){
+            const room = this.id;
+            const query = `SELECT EXISTS( SELECT accessLevel FROM ${nameSpaceRSCs} WHERE room = :room AND user = :userId LIMIT 1 )`;
+            return pool.myExecute(query,{
+                room,userId
+            }).then(result => Object.values(result[0])[0]);
+        }
+
         upsertRecordStatus(userId,recordId,status){
             const query = `INSERT INTO ${nameSpaceESCs} (relation,createdAt,updatedAt,record,user) VALUES (:status,:now,:now,:recordId,:userId) ON DUPLICATE KEY UPDATE relation = :status , updatedAt = :now ;`;
             return pool.myExecute(query,{
@@ -233,7 +241,7 @@ exports.get = nameSpace =>{
 
         exists(){
             const room = this.id;
-            const query = `SELECT EXISTS( SELECT * FROM ${nameSpaceRRCs} WHERE id = :room LIMIT 1 )`;
+            const query = `SELECT EXISTS( SELECT id FROM ${nameSpaceRRCs} WHERE id = :room LIMIT 1 )`;
             return pool.myExecute(query,{
                 room
             }).then(result => Object.values(result[0])[0]);
