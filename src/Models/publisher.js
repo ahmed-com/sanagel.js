@@ -21,7 +21,7 @@ exports.get = nameSpace =>{
         subscribe(userId,accessLevel){  
             const room = this.id;
             const query = `INSERT IGNORE INTO ${nameSpaceRSCs}(room,accessLevel,createdAt,updatedAt,user) VALUES (:room,:accessLevel,:now,:now,:userId);`
-            return pool.myExecute(query,{
+            return pool.recordWrite(nameSpace,room,query,{
                 accessLevel,
                 room,
                 userId,
@@ -32,7 +32,7 @@ exports.get = nameSpace =>{
         forceSubscribe(userId,accessLevel){
             const room = this.id;
             const query = `INSERT INTO ${nameSpaceRSCs}(room,accessLevel,createdAt,updatedAt,user) VALUES (:room,:accessLevel,:now,:now,:userId) ON DUPLICATE KEY UPDATE accessLevel = :accessLevel ;`;
-            return pool.myExecute(query,{
+            return pool.recordWrite(nameSpace,room,query,{
                 accessLevel,
                 room,
                 userId,
@@ -43,7 +43,7 @@ exports.get = nameSpace =>{
         unsubscribe(userId){      
             const room = this.id;  
             const query = `DELETE FROM ${nameSpaceRSCs} WHERE user = :userId AND room = :room ;`
-            return pool.myExecute(query,{
+            return pool.recordWrite(nameSpace,room,query,{
                 userId,
                 room
             });
@@ -52,7 +52,7 @@ exports.get = nameSpace =>{
         getSubscribers(){
             const room = this.id;
             const query = `SELECT ${nameSpaceUsers}.* , ${nameSpaceRSCs}.room AS room, ${nameSpaceRSCs}.createdAt AS subscriptionDate FROM ${nameSpaceUsers} INNER JOIN ${nameSpaceRSCs} ON ${nameSpaceUsers}.id = ${nameSpaceRSCs}.user AND ${nameSpaceRSCs}.room = :room ;`;
-            return pool.myExecute(query,{
+            return pool.recordRead(nameSpace,room,query,{
                 room
             });
         }        
@@ -110,7 +110,7 @@ exports.get = nameSpace =>{
         getAccessLevel(userId){
             const room = this.id;
             const query = `SELECT accessLevel FROM ${nameSpaceRSCs} WHERE room = :room AND user = :userId LIMIT 1;`;
-            return pool.myExecute(query,{
+            return pool.recordRead(nameSpace,room,query,{
                 room,
                 userId
             }).then(result=>result[0].accessLevel);
@@ -119,14 +119,14 @@ exports.get = nameSpace =>{
         isSubscriber(userId){
             const room = this.id;
             const query = `SELECT EXISTS( SELECT accessLevel FROM ${nameSpaceRSCs} WHERE room = :room AND user = :userId LIMIT 1 )`;
-            return pool.myExecute(query,{
+            return pool.recordRead(nameSpace,room,query,{
                 room,userId
             }).then(result => Object.values(result[0])[0]);
         }
 
         upsertRecordStatus(userId,recordId,status){
             const query = `INSERT INTO ${nameSpaceESCs} (relation,createdAt,updatedAt,record,user) VALUES (:status,:now,:now,:recordId,:userId) ON DUPLICATE KEY UPDATE relation = :status , updatedAt = :now ;`;
-            return pool.myExecute(query,{
+            return pool.recordWrite(nameSpace,room,query,{
                 status,
                 recordId,
                 userId,
@@ -136,7 +136,7 @@ exports.get = nameSpace =>{
 
         getRecordStatus(recordId,userId){
             const query = `SELECT relation FROM ${nameSpaceESCs} WHERE record = :recordId AND user = :userId LIMIT 1 ;`;
-            return pool.myExecute(query,{
+            return pool.recordRead(nameSpace,room,query,{
                 recordId,
                 userId
             }).then(result=>result[0].relation);
@@ -145,7 +145,7 @@ exports.get = nameSpace =>{
         createRecord(data,userId){
             const room = this.id;
             const query = `INSERT INTO ${nameSpaceERCs} (id,data,room,author,createdAt,updatedAt) VALUES (DEFAULT,:data,:room,:userId,:now,:now);`;
-            return pool.myExecute(query,{
+            return pool.recordWrite(nameSpace,room,query,{
                 data : JSON.stringify(data),
                 room,
                 userId,
@@ -155,7 +155,7 @@ exports.get = nameSpace =>{
 
         getRecord(recordId){
             const query = `SELECT ${nameSpaceERCs}.id, ${nameSpaceERCs}.data, ${nameSpaceERCs}.room, ${nameSpaceERCs}.createdAt, ${nameSpaceERCs}.updatedAt, ${nameSpaceERCs}.author FROM ${nameSpaceERCs} WHERE ${nameSpaceERCs}.id = :recordId LIMIT 1 ;`
-            return pool.myExecute(query,{
+            return pool.recordRead(nameSpace,room,query,{
                 recordId
             }).then(result=>result[0]);
         }
@@ -163,7 +163,7 @@ exports.get = nameSpace =>{
         getRecordsByRoom(){
             const room = this.id;
             const query = `SELECT ${nameSpaceERCs}.id, ${nameSpaceERCs}.data, ${nameSpaceERCs}.room, ${nameSpaceERCs}.createdAt, ${nameSpaceERCs}.updatedAt, ${nameSpaceERCs}.author FROM ${nameSpaceERCs} WHERE ${nameSpaceERCs}.room = :room ;`
-            return pool.myExecute(query,{
+            return pool.recordRead(nameSpace,room,query,{
                 room
             })
         }
@@ -178,7 +178,7 @@ exports.get = nameSpace =>{
 
         updateRecord(recordId,data){
             const query = `UPDATE ${nameSpaceERCs} SET data=:data,updatedAt=:now WHERE id = :recordId ;`;
-            return pool.myExecute(query,{
+            return pool.recordWrite(nameSpace,room,query,{
                 data ,
                 recordId,
                 now :  moment(Date.now()).format(`YYYY-MM-DD HH:mm:ss`)
@@ -187,7 +187,7 @@ exports.get = nameSpace =>{
 
         deleteRecord(recordId){
             const query = `DELETE FROM ${nameSpaceERCs} WHERE id = :recordId;`;
-            return pool.myExecute(query,{
+            return pool.recordWrite(nameSpace,room,query,{
                 recordId
             });
         }
@@ -205,7 +205,7 @@ exports.get = nameSpace =>{
         createNestedRoom(userId,data){
             const room = this.id;
             const query = `INSERT INTO ${nameSpaceRRCs}(id,parent,admin,data,createdAt,updatedAt) VALUES (DEFAULT,:parent,:userId,:data,:now,:now);`;
-            return pool.myExecute(query,{
+            return pool.recordWrite(nameSpace,room,query,{
                 parent : room,
                 userId,
                 data : JSON.stringify(data),
@@ -216,7 +216,7 @@ exports.get = nameSpace =>{
         deleteRoom(){
             const room = this.id;
             const query = `DELETE FROM ${nameSpaceRRCs} WHERE id = :room LIMIT 1;`;
-            return pool.myExecute(query,{
+            return pool.recordWrite(nameSpace,room,query,{
                 room 
             });
         }
@@ -224,7 +224,7 @@ exports.get = nameSpace =>{
         updateRoom(data){
             const room = this.id;
             const query = `UPDATE ${nameSpaceRRCs} SET data=:data,updatedAt=:now WHERE id = :room ;`;
-            return pool.myExecute(query,{
+            return pool.recordWrite(nameSpace,room,query,{
                 room,
                 data,
                 now :  moment(Date.now()).format(`YYYY-MM-DD HH:mm:ss`)
@@ -234,7 +234,7 @@ exports.get = nameSpace =>{
         getData(){
             const room = this.id;
             const query = `SELECT * FROM ${nameSpaceRRCs} WHERE id = :room LIMIT 1;`;
-            return pool.myExecute(query,{
+            return pool.recordRead(nameSpace,room,query,{
                 room
             }).then(result=>result[0]);
         }
@@ -242,7 +242,7 @@ exports.get = nameSpace =>{
         exists(){
             const room = this.id;
             const query = `SELECT EXISTS( SELECT id FROM ${nameSpaceRRCs} WHERE id = :room LIMIT 1 )`;
-            return pool.myExecute(query,{
+            return pool.recordRead(nameSpace,room,query,{
                 room
             }).then(result => Object.values(result[0])[0]);
         }
@@ -250,7 +250,7 @@ exports.get = nameSpace =>{
         getSubscribersCount(){
             const room = this.id;
             const query = `SELECT COUNT(*) FROM ${nameSpaceRSCs} WHERE room = :room ;`;
-            return pool.myExecute(query,{
+            return pool.recordRead(nameSpace,room,query,{
                 room
             })
         }
