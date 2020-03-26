@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { throw401, throw422 } = require('../utils/errors');
+const { throw401, throw422 } = require('../scripts/errors');
 
 module.exports = (req,res,next)=>{
     try{

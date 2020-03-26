@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const {throw422 , throw404, throw401} = require('../utils/errors');
+const {throw422 , throw404, throw401} = require('../scripts/errors');
 
 exports.signUp =async (req,res,next)=>{
     try{
