@@ -73,7 +73,7 @@ router.delete('/room/',is_auth,[
     .isInt({gt:0})
 ],validate,publisher.deleteRoom);
 
-router.get('/record/',is_auth,[
+router.get('/records/',is_auth,[
     check('room')
     .isInt({gt:0})
 ],validate,publisher.getAllRecords);
@@ -82,7 +82,7 @@ router.get('/record/unseen/',publisher.getUnseenRecords);
 
 router.get('/record/user/',publisher.getUserRecords);
 
-router.get('/record/:recordId',is_auth,[
+router.get('/record/',is_auth,[
     check('room')
     .isInt({gt:0}),
     check('recordId')

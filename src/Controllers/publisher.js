@@ -236,7 +236,7 @@ exports.getRecord =async (req,res,next)=>{
     try{
         const Publisher = req.Publisher
         const room = req.body.room;
-        const recordId = req.params.recordId;
+        const recordId = req.body.recordId;
         const userId = req.body.userId;
         const publisher = new Publisher(room);
         const relation = await publisher.getRecordStatus(recordId,userId);
