@@ -137,6 +137,8 @@ exports.remove =async (req,res,next)=>{
         res.status(200).json({
             message : 'Removed successfuly'
         });
+        const remover = await publisher.getUser(userId);
+        publisher.emit(events.removed,JSON.stringify({user,remover}));// be careful of what you emit
         const socketId = await Publisher.getSocketId(removedId);
         if(socketId) publisher.leave(socketId);
         return;
@@ -157,14 +159,15 @@ exports.invite = async (req,res,next) =>{
         const accessLevel = await publisher.getAccessLevel(userId);
         if(!accessLevel) throw404('Room Not Found');
         if(!canInvite(accessLevel,inviteAccessLevel)) throw403('Unauthorized Action');
-        const user = await publisher.getUser(invitedId);         
+        const user = await publisher.getUser(invitedId);
         if(!user) throw404("User Not Found !");
         stripNotify(inviteAccessLevel);
         await publisher.forceSubscribe(invitedId,inviteAccessLevel);
         res.status(200).json({
             message : 'Invited Successfuly'
         });
-        publisher.emit(events.invited,JSON.stringify(user));// be careful of what you emit
+        const inviter = await publisher.getUser(userId);
+        publisher.emit(events.invited,JSON.stringify({user,inviter}));// be careful of what you emit
         const socketId = await Publisher.getSocketId(invitedId);
         if(socketId) publisher.join(socketId);
         return;
@@ -358,7 +361,7 @@ exports.getUnseenRecords =async (req,res,next)=>{ // this function is for notifi
         records.forEach(record=>{
             let publisher = new Publisher(record.room);
             await publisher.upsertRecordStatus(userId,record.id,relations.delivered);
-            publisher.emit(events.delivered,JSON.stringify({user , record}));
+            publisher.emit(events.delivered,JSON.stringify({user , record}));// be careful of what you emit
         });
         return;
     }catch(err){
@@ -421,10 +424,16 @@ exports.deleteRoom =async (req,res,next)=>{// I'm Not Sure About This At All
         const publisher = new Publisher(room);
         const result = await publisher.getData();
         if(!result) throw404('Room Not Found!');
-        if(result.admin != userId) throw403('Unauthorized Action');
+        if(result.admin !== userId) throw403('Unauthorized Action');
         await publisher.deleteRoom();            
         res.status(202).json({
             message : 'Deleted successfully'
+        });
+        const subscribers = await publisher.getSubscribers();
+        subscribers.forEach(async subscriber=>{
+            publisher.emit(events.roomDeleted,true);
+            const socketId = await publisher.getSocketId(subscriber.id);
+            if(socketId) publisher.leave(socketId);
         });
         return;
     }catch(err){
