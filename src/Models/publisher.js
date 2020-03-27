@@ -99,6 +99,10 @@ exports.get = nameSpace =>{
             IO.connected[socketId].join(this.id);
         }
 
+        static isValidSocketId(socketId){
+            return Object.keys(IO.connected).includes(socketId);
+        }
+
         static getRoomsByUser(userId){
             const query = `SELECT ${nameSpaceRRCs}.* , ${nameSpaceRSCs}.createdAt AS subscriptionDate, ${nameSpaceRSCs}.accessLevel AS accessLevel FROM ${nameSpaceRRCs} INNER JOIN ${nameSpaceRSCs} ON ${nameSpaceRRCs}.id = ${nameSpaceRSCs}.room AND ${nameSpaceRSCs}.user = :userId ;`;
             return pool.myExecute(query,{

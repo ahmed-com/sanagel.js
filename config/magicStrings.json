@@ -22,8 +22,7 @@
         "read_invite_notify" : 6,
         "read_invite" : 7,
         "read_notify" : 8,
-        "read_only" : 9,
-        "max_level" : 10
+        "read_only" : 9
     },
     "relations":{
         "owner" : 0,
