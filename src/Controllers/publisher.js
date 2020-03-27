@@ -2,7 +2,7 @@ const { throw400 , throw403 , throw404} = require('../scripts/errors');
 const {accessLevels , events, relations} = require('../../config/magicStrings.json');
 const {canWrite, canInvite , canRemove, addNotify, hasNotify , stripNotify} = require('../scripts/manage-access-level');
 
-exports.createRoom = (req,res,next)=>{
+exports.createRoom = async (req,res,next)=>{
     try{
         const Publisher = req.Publisher;
         const userId = req.body.userId;
@@ -194,7 +194,6 @@ exports.createRecord =async (req,res,next)=>{
         const room = req.body.room;
         const userId = req.body.userId;  
         const data = req.body.data;
-        let record;
         const publisher = new Publisher(room);
         const accessLevel = publisher.getAccessLevel(userId);
         if(!accessLevel) throw404('Room Not Found!');
@@ -329,7 +328,7 @@ exports.getAllRecords =async (req,res,next)=>{
             records
         });
         const user = await Publisher.getUser(userId);
-        records.forEach(record=>{
+        records.forEach(async record=>{
             if(record.author !== userId){
                 const relation = await publisher.getRecordStatus(record.id,userId);
                 if(relation !== relations.seen){
@@ -355,7 +354,7 @@ exports.getUnseenRecords =async (req,res,next)=>{ // this function is for notifi
             message : 'Records requested',
             records
         });
-        records.forEach(record=>{
+        records.forEach(async record=>{
             let publisher = new Publisher(record.room);
             await publisher.upsertRecordStatus(userId,record.id,relations.delivered);
             publisher.emit(events.delivered,JSON.stringify({user , record}));
