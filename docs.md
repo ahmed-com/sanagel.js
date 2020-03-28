@@ -80,6 +80,8 @@
 ## returns : 
 * message(*str*) : that confirms success.
 >## 7. *post* ```/:nameSpace/leave```
+## returns : 
+* message(*str*) : that confirms success.
 >## 8. *delete* ```/:nameSpace/remove```
 ## takes : 
 * room(*int*) :  the ID for the room.
@@ -138,14 +140,6 @@
 ## returns : 
 * message(*str*) : that confirms success.
 * record(*json*) : the record created.
->## 17. *post* ```/:nameSpace/record```
-## takes : 
-* room(*int*) :  the ID for the room.
-* data(*json*) : the record data.
-## returns : 
-* message(*str*) : that confirms success.
-* record(*json*) : the record created.
-
 >## 18. *put* ```/:nameSpace/recordStatus```
 ## takes : 
 * room(*int*) :  the ID for the room.
