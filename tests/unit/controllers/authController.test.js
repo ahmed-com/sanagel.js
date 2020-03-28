@@ -44,14 +44,15 @@ describe('signUp',()=>{
             json : jest.fn()
         };
         const next = jest.fn();
-        bcrypt.hash = jest.fn();
+        const mockedBcryptHash = jest.spyOn(bcrypt,"hash");
 
         await signUp(req,res,next);
 
         expect(req.Publisher.createUser).toHaveBeenCalled();
-        expect(bcrypt.hash).toHaveBeenCalled();
+        expect(mockedBcryptHash).toHaveBeenCalled();
         expect(statusCode).toBe(201);
         expect(res.json).toHaveBeenCalled();
+        mockedBcryptHash.mockRestore();
     });
 });
 
@@ -111,13 +112,16 @@ describe('signIn',()=>{
             json : jest.fn()
         };
         const next = jest.fn();
-        bcrypt.compare = jest.fn().mockResolvedValue(true);
-        jwt.sign = jest.fn();
+        const mockedBcryptCompare = jest.spyOn(bcrypt,"compare").mockResolvedValue(true);
+        const mockedJWTSign = jest.spyOn(jwt,"sign");
 
         await signIn(req,res,next);
 
-        expect(jwt.sign).toHaveBeenCalled();
+        expect(mockedJWTSign).toHaveBeenCalled();
+        expect(mockedBcryptCompare).toHaveBeenCalled();
         expect(statusCode).toBe(200);
         expect(res.json).toHaveBeenCalled();
+        mockedJWTSign.mockRestore();
+        mockedBcryptCompare.mockRestore()
     });
 })

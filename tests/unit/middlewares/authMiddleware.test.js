@@ -70,10 +70,11 @@ describe('is_auth',()=>{
             get:headerName => 'Bearer xyz.xyz.xyz'
         };
         const next = jest.fn();
-        jwt.verify = jest.fn().mockReturnValue({userId : 1});
-
+        const mockedJWTVerify = jest.spyOn(jwt,"verify").mockReturnValue({userId : 1});
         is_auth(req,{},next);
+        expect(mockedJWTVerify).toHaveBeenCalled();
         expect(next).toHaveBeenCalled();
         expect(req).toHaveProperty('userId',1);
+        mockedJWTVerify.mockRestore();
     });
 });

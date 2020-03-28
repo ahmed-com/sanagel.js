@@ -11,6 +11,15 @@ router.post('/api/create',(req,res,next)=>{
     .catch(err=> console.log(err));
 });
 
+router.delete('/api/delete',(req,res,next)=>{
+    const nameSpace = req.body.nameSpace;
+    publishers.drop(nameSpace)
+    .then(()=>{
+        res.json({message : 'done'});
+    })
+    .catch(err=> console.log(err));
+});
+
 router.use('/:nameSpace/',(req,res,next)=>{
     const nameSpace = req.params.nameSpace;
     req.Publisher = publishers.get(nameSpace);

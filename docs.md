@@ -169,3 +169,8 @@
 * message(*str*) : that confirms success.
 * token(*jwt*) : the json web token.
 * userId(*int*) : the ID of the user.
+>## 1. *delete* ```/api/delete``` 
+## takes :
+* nameSpace(*int*) : the name space of your project.
+## returns :
+* message(*str*) : that confirms success.
