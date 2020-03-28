@@ -152,7 +152,7 @@
 * recordId(*int*) : the ID of the record 
 ## returns : 
 * message(*str*) : that confirms success.
-## 19. *post* ```/:nameSpace/user/signup```
+>## 19. *post* ```/:nameSpace/user/signup```
 ## takes : 
 * mail(*str*) :  the mail of the user.
 * password(*str*) : the password of the user.
@@ -161,7 +161,7 @@
 ## returns : 
 * message(*str*) : that confirms success.
 * user(*json*) : the user created.
-## 20. *post* ```/:nameSpace/user/signin```
+>## 20. *post* ```/:nameSpace/user/signin```
 ## takes : 
 * mail(*str*) :  the mail of the user.
 * password(*str*) : the password of the user.
