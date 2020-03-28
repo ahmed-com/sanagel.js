@@ -27,7 +27,7 @@ describe('signUp',()=>{
         let statusCode;
         const req = {
             Publisher :{
-                getUserByMail : jest.fn().mockResolvedValue([]),
+                getUserByMail : jest.fn().mockResolvedValue(undefined),
                 createUser : jest.fn().mockResolvedValue({insertId : 1})
             },
             body : {
@@ -59,7 +59,7 @@ describe('signIn',()=>{
     it('should forward a 404 if user was not found',async function(){
         const req = {
             Publisher :{
-                getUserByMail : jest.fn().mockResolvedValue([])
+                getUserByMail : jest.fn().mockResolvedValue(undefined)
             },
             body : {
                 mail : 'a',
@@ -77,7 +77,7 @@ describe('signIn',()=>{
     it('should forward a 401 if passwords didnt match',async function(){
         const req = {
             Publisher :{
-                getUserByMail : jest.fn().mockResolvedValue([{hashedPW : 'a'}])
+                getUserByMail : jest.fn().mockResolvedValue({hashedPW : 'a'})
             },
             body : {
                 mail : 'a',
@@ -96,7 +96,7 @@ describe('signIn',()=>{
         let statusCode;
         const req = {
             Publisher :{
-                getUserByMail : jest.fn().mockResolvedValue([{id : 1,hashedPW : 'a'}])
+                getUserByMail : jest.fn().mockResolvedValue({id : 1,hashedPW : 'a'})
             },
             body : {
                 mail : 'a',
