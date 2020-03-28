@@ -57,8 +57,8 @@ exports.get = nameSpace =>{
             });
         }        
 
-        static getUser(userId){
-            const query = `SELECT id, userName, mail, createdAt, updatedAt FROM ${nameSpaceUsers} WHERE id = :userId LIMIT 1;`;
+        static getUserPublic(userId){
+            const query = `SELECT id, userName FROM ${nameSpaceUsers} WHERE id = :userId LIMIT 1;`;
             return pool.myExecute(query,{
                 userId
             }).then(result=>result[0]);
@@ -68,7 +68,7 @@ exports.get = nameSpace =>{
             const query = `SELECT id, hashedPW , userName, mail, createdAt, updatedAt FROM ${nameSpaceUsers} WHERE mail = :mail LIMIT 1;`;
             return pool.myExecute(query,{
                 mail
-            });
+            }).then(result=>result[0]);
         }
 
         static getSocketId = userId =>{

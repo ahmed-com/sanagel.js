@@ -78,9 +78,9 @@ router.get('/records/',is_auth,[
     .isInt({gt:0})
 ],validate,publisher.getAllRecords);
 
-router.get('/record/unseen/',publisher.getUnseenRecords);
+router.get('/records/unseen/',is_auth,publisher.getUnseenRecords);
 
-router.get('/record/user/',publisher.getUserRecords);
+router.get('/records/user/',is_auth,publisher.getUserRecords);
 
 router.get('/record/',is_auth,[
     check('room')
