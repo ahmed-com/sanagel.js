@@ -129,6 +129,7 @@ exports.get = nameSpace =>{
         }
 
         upsertRecordStatus(userId,recordId,status){
+            const room = this.id;
             const query = `INSERT INTO ${nameSpaceESCs} (relation,createdAt,updatedAt,record,user) VALUES (:status,:now,:now,:recordId,:userId) ON DUPLICATE KEY UPDATE relation = :status , updatedAt = :now ;`;
             return pool.recordWrite(nameSpace,room,query,{
                 status,
@@ -139,6 +140,7 @@ exports.get = nameSpace =>{
         }
 
         getRecordStatus(recordId,userId){
+            const room = this.id;
             const query = `SELECT relation FROM ${nameSpaceESCs} WHERE record = :recordId AND user = :userId LIMIT 1 ;`;
             return pool.recordRead(nameSpace,room,query,{
                 recordId,
@@ -158,6 +160,7 @@ exports.get = nameSpace =>{
         }
 
         getRecord(recordId){
+            const room = this.id;
             const query = `SELECT ${nameSpaceERCs}.id, ${nameSpaceERCs}.data, ${nameSpaceERCs}.room, ${nameSpaceERCs}.createdAt, ${nameSpaceERCs}.updatedAt, ${nameSpaceERCs}.author FROM ${nameSpaceERCs} WHERE ${nameSpaceERCs}.id = :recordId LIMIT 1 ;`
             return pool.recordRead(nameSpace,room,query,{
                 recordId
@@ -181,6 +184,7 @@ exports.get = nameSpace =>{
         }
 
         updateRecord(recordId,data){
+            const room = this.id;
             const query = `UPDATE ${nameSpaceERCs} SET data=:data,updatedAt=:now WHERE id = :recordId ;`;
             return pool.recordWrite(nameSpace,room,query,{
                 data ,
@@ -190,6 +194,7 @@ exports.get = nameSpace =>{
         }
 
         deleteRecord(recordId){
+            const room = this.id;
             const query = `DELETE FROM ${nameSpaceERCs} WHERE id = :recordId;`;
             return pool.recordWrite(nameSpace,room,query,{
                 recordId
