@@ -373,7 +373,7 @@ exports.getUnseenRecords =async (req,res,next)=>{ // this function is for notifi
     try{
         const Publisher = req.Publisher;
         const userId = req.body.userId;
-        const records = await Publisher.getRecordsByUser(userId,relations.unseen);
+        const records = await Publisher.getRecordsByUserRelation(userId,relations.unseen);
         const user = Publisher.getUserPublic(userId);
         res.status(200).json({
             message : 'Records requested',
@@ -395,7 +395,7 @@ exports.getUserRecords = async (req,res,next)=>{
     try{
         const Publisher = req.Publisher;
         const userId = req.body.userId;
-        const records = await Publisher.getRecordsByUser(userId,relations.owner);
+        const records = await Publisher.getRecordsByUserRelation(userId,relations.owner);
         res.status(200).json({
             message : 'Records requested',
             records

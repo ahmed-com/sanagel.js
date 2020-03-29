@@ -99,6 +99,14 @@ exports.get = nameSpace =>{
             IO.connected[socketId].join(this.id);
         }
 
+        clearCache(){
+            const room = this.id;
+            setImmediate(()=>{
+                const key = JSON.stringify({nameSpace,room});
+                client.del(key);
+            });
+        }
+
         static isValidSocketId(socketId){
             return Object.keys(IO.connected).includes(socketId);
         }
@@ -129,6 +137,7 @@ exports.get = nameSpace =>{
         }
 
         upsertRecordStatus(userId,recordId,status){
+            const room = this.id;
             const query = `INSERT INTO ${nameSpaceESCs} (relation,createdAt,updatedAt,record,user) VALUES (:status,:now,:now,:recordId,:userId) ON DUPLICATE KEY UPDATE relation = :status , updatedAt = :now ;`;
             return pool.recordWrite(nameSpace,room,query,{
                 status,
@@ -139,6 +148,7 @@ exports.get = nameSpace =>{
         }
 
         getRecordStatus(recordId,userId){
+            const room = this.id;
             const query = `SELECT relation FROM ${nameSpaceESCs} WHERE record = :recordId AND user = :userId LIMIT 1 ;`;
             return pool.recordRead(nameSpace,room,query,{
                 recordId,
@@ -148,17 +158,17 @@ exports.get = nameSpace =>{
 
         createRecord(data,userId){
             const room = this.id;
-            const query = `INSERT INTO ${nameSpaceERCs} (id,data,room,author,createdAt,updatedAt) VALUES (DEFAULT,:data,:room,:userId,:now,:now);`;
+            const query = `INSERT INTO ${nameSpaceERCs} (id,data,author,createdAt,updatedAt) VALUES (DEFAULT,:data,:userId,:now,:now);`;
             return pool.recordWrite(nameSpace,room,query,{
                 data : JSON.stringify(data),
-                room,
                 userId,
                 now : moment(Date.now()).format(`YYYY-MM-DD HH:mm:ss`)
             });
         }
 
         getRecord(recordId){
-            const query = `SELECT ${nameSpaceERCs}.id, ${nameSpaceERCs}.data, ${nameSpaceERCs}.room, ${nameSpaceERCs}.createdAt, ${nameSpaceERCs}.updatedAt, ${nameSpaceERCs}.author FROM ${nameSpaceERCs} WHERE ${nameSpaceERCs}.id = :recordId LIMIT 1 ;`
+            const room = this.id;
+            const query = `SELECT ${nameSpaceERCs}.id, ${nameSpaceERCs}.data, ${nameSpaceERCs}.createdAt, ${nameSpaceERCs}.updatedAt, ${nameSpaceERCs}.author FROM ${nameSpaceERCs} WHERE ${nameSpaceERCs}.id = :recordId LIMIT 1 ;`
             return pool.recordRead(nameSpace,room,query,{
                 recordId
             }).then(result=>result[0]);
@@ -166,21 +176,36 @@ exports.get = nameSpace =>{
 
         getRecordsByRoom(){
             const room = this.id;
-            const query = `SELECT ${nameSpaceERCs}.id, ${nameSpaceERCs}.data, ${nameSpaceERCs}.room, ${nameSpaceERCs}.createdAt, ${nameSpaceERCs}.updatedAt, ${nameSpaceERCs}.author FROM ${nameSpaceERCs} WHERE ${nameSpaceERCs}.room = :room ;`
+            const query = `SELECT ${nameSpaceERCs}.id, ${nameSpaceERCs}.data, ${nameSpaceERCs}.createdAt, ${nameSpaceERCs}.updatedAt, ${nameSpaceERCs}.author, ${nameSpaceRESCs}.room, ${nameSpaceRESCs}.user AS host, ${nameSpaceRESCs}.insertedAt FROM ${nameSpaceERCs} INNER JOIN ${nameSpaceRESCs} ON ${nameSpaceERCs}.id = ${nameSpaceRESCs}.record WHERE ${nameSpaceRESCs}.room = :room ;`
             return pool.recordRead(nameSpace,room,query,{
                 room
             })
         }
 
-        static getRecordsByUser(userId,relation){
-            const query = `SELECT ${nameSpaceERCs}.id, ${nameSpaceERCs}.data, ${nameSpaceERCs}.room, ${nameSpaceERCs}.createdAt, ${nameSpaceERCs}.updatedAt, ${nameSpaceERCs}.author, ${nameSpaceESCs}.user AS userId FROM ${nameSpaceERCs} INNER JOIN ${nameSpaceESCs} ON ${nameSpaceERCs}.id = ${nameSpaceESCs}.record AND ${nameSpaceESCs}.relation = :relation WHERE ${nameSpaceESCs}.user = :userId`;
+        static getRecordsByUserRelation(userId,relation){
+            const query = `SELECT ${nameSpaceERCs}.id, ${nameSpaceERCs}.data, ${nameSpaceERCs}.createdAt, ${nameSpaceERCs}.updatedAt, ${nameSpaceERCs}.author, ${nameSpaceESCs}.user AS userId FROM ${nameSpaceERCs} INNER JOIN ${nameSpaceESCs} ON ${nameSpaceERCs}.id = ${nameSpaceESCs}.record AND ${nameSpaceESCs}.relation = :relation WHERE ${nameSpaceESCs}.user = :userId`;
             return pool.myExecute(query,{
                 userId,
                 relation
             });
         }
 
+        static getRecordsByAuthor(userId){
+            const query = `SELECT ${nameSpaceERCs}.id, ${nameSpaceERCs}.data, ${nameSpaceERCs}.createdAt, ${nameSpaceERCs}.updatedAt, ${nameSpaceERCs}.author WHERE ${nameSpaceERCs}.author = :userId ;`;
+            return pool.myExecute(query,{
+                userId
+            });
+        }
+
+        static getRecordsByUser(userId){
+            const query = `SELECT ${nameSpaceERCs}.id, ${nameSpaceERCs}.data, ${nameSpaceERCs}.createdAt, ${nameSpaceERCs}.updatedAt, ${nameSpaceERCs}.author, ${nameSpaceRESCs}.user AS userId, ${nameSpaceRESCs}.room, ${nameSpaceRESCs}.insertedAt FROM ${nameSpaceERCs} INNER JOIN ${nameSpaceRESCs} ON ${nameSpaceERCs}.id = ${nameSpaceRESCs}.record AND ${nameSpaceRESCs}.user = :userId ;`;
+            return pool.myExecute(query,{
+                userId
+            });
+        }
+
         updateRecord(recordId,data){
+            const room = this.id;
             const query = `UPDATE ${nameSpaceERCs} SET data=:data,updatedAt=:now WHERE id = :recordId ;`;
             return pool.recordWrite(nameSpace,room,query,{
                 data ,
@@ -190,6 +215,7 @@ exports.get = nameSpace =>{
         }
 
         deleteRecord(recordId){
+            const room = this.id;
             const query = `DELETE FROM ${nameSpaceERCs} WHERE id = :recordId;`;
             return pool.recordWrite(nameSpace,room,query,{
                 recordId
@@ -281,11 +307,13 @@ exports.create = nameSpace => {
     const nameSpaceESCs = `T${nameSpace}ESCs`;
     const nameSpaceRSCs = `T${nameSpace}RSCs`;
     const nameSpaceUsers = `T${nameSpace}Users`;
+    const nameSpaceRESCs = `T${nameSpace}RESCs`;
     return pool.myExecute(`CREATE TABLE IF NOT EXISTS ${nameSpaceUsers} (id INTEGER NOT NULL auto_increment UNIQUE ,data JSON, userName VARCHAR(255) NOT NULL, hashedPW VARCHAR(255) NOT NULL, mail VARCHAR(255) NOT NULL, createdAt DATETIME NOT NULL, updatedAt DATETIME NOT NULL, PRIMARY KEY (id), UNIQUE(mail)) ENGINE=InnoDB;`)
     .then(()=> pool.myExecute(` CREATE TABLE IF NOT EXISTS ${nameSpaceRRCs} (id INTEGER NOT NULL auto_increment UNIQUE , parent INTEGER NULL, data JSON,admin INTEGER NOT NULL, createdAt DATETIME NOT NULL, updatedAt DATETIME NOT NULL, PRIMARY KEY (id), FOREIGN KEY (admin) REFERENCES ${nameSpaceUsers}(id) ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY (parent) REFERENCES ${nameSpaceRRCs}(id) ON DELETE CASCADE ON UPDATE CASCADE) ENGINE=InnoDB;`))
     .then(()=> pool.myExecute(`CREATE TABLE IF NOT EXISTS ${nameSpaceRSCs} (room INTEGER NOT NULL, user INTEGER NOT NULL, accessLevel TINYINT, createdAt DATETIME NOT NULL, updatedAt DATETIME NOT NULL, PRIMARY KEY (room,user), FOREIGN KEY (room) REFERENCES ${nameSpaceRRCs}(id) ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY (user) REFERENCES ${nameSpaceUsers} (id) ON DELETE CASCADE ON UPDATE CASCADE) ENGINE=InnoDB;`))
-    .then(()=> pool.myExecute(`CREATE TABLE IF NOT EXISTS ${nameSpaceERCs} (id INTEGER NOT NULL auto_increment UNIQUE , data JSON NOT NULL, room INTEGER NOT NULL,author INTEGER NOT NULL, createdAt DATETIME NOT NULL, updatedAt DATETIME NOT NULL, PRIMARY KEY (id), FOREIGN KEY (room) REFERENCES ${nameSpaceRRCs} (id) ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY (author) REFERENCES ${nameSpaceUsers}(id) ON DELETE CASCADE ON UPDATE CASCADE) ENGINE=InnoDB;`))
-    .then(()=> pool.myExecute(`CREATE TABLE IF NOT EXISTS ${nameSpaceESCs} (relation TINYINT, record INTEGER NOT NULL, user INTEGER NOT NULL, createdAt DATETIME NOT NULL, updatedAt DATETIME NOT NULL, PRIMARY KEY (record,user), FOREIGN KEY (record) REFERENCES ${nameSpaceERCs} (id), FOREIGN KEY (user) REFERENCES ${nameSpaceUsers} (id)) ENGINE=InnoDB;`));
+    .then(()=> pool.myExecute(`CREATE TABLE IF NOT EXISTS ${nameSpaceERCs} (id INTEGER NOT NULL auto_increment UNIQUE , data JSON NOT NULL, author INTEGER NOT NULL, createdAt DATETIME NOT NULL, updatedAt DATETIME NOT NULL, PRIMARY KEY (id), FOREIGN KEY (author) REFERENCES ${nameSpaceUsers}(id) ON DELETE CASCADE ON UPDATE CASCADE) ENGINE=InnoDB;`))
+    .then(()=> pool.myExecute(`CREATE TABLE IF NOT EXISTS ${nameSpaceESCs} (relation TINYINT, record INTEGER NOT NULL, user INTEGER NOT NULL, createdAt DATETIME NOT NULL, updatedAt DATETIME NOT NULL, PRIMARY KEY (record,user), FOREIGN KEY (record) REFERENCES ${nameSpaceERCs} (id) ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY (user) REFERENCES ${nameSpaceUsers} (id) ON DELETE CASCADE ON UPDATE CASCADE) ENGINE=InnoDB;`))
+    .then(()=> pool.myExecute(`CREATE TABLE IF NOT EXISTS ${nameSpaceRESCs} (room INTEGER NOT NULL, user INTEGER NOT NULL, record INTEGER NOT NULL, insertedAt DATETIME NOT NULL, FOREIGN KEY (user) REFERENCES ${nameSpaceUsers}(id) ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY (room) REFERENCES ${nameSpaceRRCs}(id) ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY (record) REFERENCES ${nameSpaceERCs} (id) ON DELETE CASCADE ON UPDATE CASCADE, UNIQUE(room,record,user)) ENGINE=InnoDB;`));
 }
 
 exports.drop = nameSpace=>{
@@ -294,5 +322,6 @@ exports.drop = nameSpace=>{
     const nameSpaceESCs = `T${nameSpace}ESCs`;
     const nameSpaceRSCs = `T${nameSpace}RSCs`;
     const nameSpaceUsers = `T${nameSpace}Users`;
-    return pool.myExecute(`DROP TABLE ${nameSpaceUsers}, ${nameSpaceRSCs}, ${nameSpaceRRCs}, ${nameSpaceESCs}, ${nameSpaceERCs};`)
+    const nameSpaceRESCs = `T${nameSpace}RESCs`;
+    return pool.myExecute(`DROP TABLE ${nameSpaceUsers}, ${nameSpaceRSCs}, ${nameSpaceRRCs}, ${nameSpaceESCs}, ${nameSpaceERCs}, ${nameSpaceRESCs};`)
 }
