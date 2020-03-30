@@ -137,8 +137,6 @@ exports.get = nameSpace =>{
             })
         }
 
-
-
         getAccessLevel(userId){
             const room = this.id;
             const query = `SELECT accessLevel FROM ${nameSpaceRSCs} WHERE room = :room AND user = :userId LIMIT 1;`;
@@ -195,6 +193,18 @@ exports.get = nameSpace =>{
                 userId,
                 now : moment(Date.now()).format(`YYYY-MM-DD HH:mm:ss`)
             })
+        }
+
+        createRecordWithReference(data,userId){
+            let recordId;
+            return pool.promise().query('START TRANSACTION')
+            .then(()=>this.createRecord(data,userId))
+            .then(({insertId})=>{
+                recordId = insertId;
+                return this.addReference(recordId,userId);
+            })
+            .then(()=> pool.promise().query('COMMIT'))
+            .then(()=>recordId);
         }
 
         removeReference(recordId,userId){
@@ -279,7 +289,7 @@ exports.get = nameSpace =>{
             return pool.myExecute(query,{
                 parent : null,
                 userId,
-                data,
+                data : JSON.stringify(data),
                 now : moment(Date.now()).format(`YYYY-MM-DD HH:mm:ss`)
             });
         }
@@ -308,7 +318,7 @@ exports.get = nameSpace =>{
             const query = `UPDATE ${nameSpaceRRCs} SET data=:data,updatedAt=:now WHERE id = :room ;`;
             return pool.recordWrite(nameSpace,room,query,{
                 room,
-                data,
+                data : JSON.stringify(data),
                 now :  moment(Date.now()).format(`YYYY-MM-DD HH:mm:ss`)
             });
         }
@@ -343,7 +353,7 @@ exports.get = nameSpace =>{
                 userName,
                 mail,
                 hashedPW,
-                data,
+                data : JSON.stringify(data),
                 now : moment(Date.now()).format(`YYYY-MM-DD HH:mm:ss`)
             });
         }
@@ -354,6 +364,7 @@ exports.get = nameSpace =>{
 }
 
 exports.create = nameSpace => {
+    const garbageCollector = require('../scripts/garbageCollector');
     const nameSpaceRRCs = `T${nameSpace}RRCs`;
     const nameSpaceERCs = `T${nameSpace}ERCs`;
     const nameSpaceESCs = `T${nameSpace}ESCs`;
@@ -365,7 +376,8 @@ exports.create = nameSpace => {
     .then(()=> pool.myExecute(`CREATE TABLE IF NOT EXISTS ${nameSpaceRSCs} (room INTEGER NOT NULL, user INTEGER NOT NULL, accessLevel TINYINT, createdAt DATETIME NOT NULL, updatedAt DATETIME NOT NULL, PRIMARY KEY (room,user), FOREIGN KEY (room) REFERENCES ${nameSpaceRRCs}(id) ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY (user) REFERENCES ${nameSpaceUsers} (id) ON DELETE CASCADE ON UPDATE CASCADE) ENGINE=InnoDB;`))
     .then(()=> pool.myExecute(`CREATE TABLE IF NOT EXISTS ${nameSpaceERCs} (id INTEGER NOT NULL auto_increment UNIQUE , data JSON NOT NULL, author INTEGER NOT NULL, createdAt DATETIME NOT NULL, updatedAt DATETIME NOT NULL, PRIMARY KEY (id), FOREIGN KEY (author) REFERENCES ${nameSpaceUsers}(id) ON DELETE CASCADE ON UPDATE CASCADE) ENGINE=InnoDB;`))
     .then(()=> pool.myExecute(`CREATE TABLE IF NOT EXISTS ${nameSpaceESCs} (relation TINYINT, record INTEGER NOT NULL, user INTEGER NOT NULL, createdAt DATETIME NOT NULL, updatedAt DATETIME NOT NULL, PRIMARY KEY (record,user), FOREIGN KEY (record) REFERENCES ${nameSpaceERCs} (id) ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY (user) REFERENCES ${nameSpaceUsers} (id) ON DELETE CASCADE ON UPDATE CASCADE) ENGINE=InnoDB;`))
-    .then(()=> pool.myExecute(`CREATE TABLE IF NOT EXISTS ${nameSpaceRESCs} (room INTEGER NOT NULL, user INTEGER NOT NULL, record INTEGER NOT NULL, insertedAt DATETIME NOT NULL, FOREIGN KEY (user) REFERENCES ${nameSpaceUsers}(id) ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY (room) REFERENCES ${nameSpaceRRCs}(id) ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY (record) REFERENCES ${nameSpaceERCs} (id) ON DELETE CASCADE ON UPDATE CASCADE, UNIQUE(room,record,user)) ENGINE=InnoDB;`));
+    .then(()=> pool.myExecute(`CREATE TABLE IF NOT EXISTS ${nameSpaceRESCs} (room INTEGER NOT NULL, user INTEGER NOT NULL, record INTEGER NOT NULL, insertedAt DATETIME NOT NULL, FOREIGN KEY (user) REFERENCES ${nameSpaceUsers}(id) ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY (room) REFERENCES ${nameSpaceRRCs}(id) ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY (record) REFERENCES ${nameSpaceERCs} (id) ON DELETE CASCADE ON UPDATE CASCADE, UNIQUE(room,record,user)) ENGINE=InnoDB;`))
+    .then(()=> garbageCollector.init(nameSpace));
 }
 
 exports.drop = nameSpace=>{
