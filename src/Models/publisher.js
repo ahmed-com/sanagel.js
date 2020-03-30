@@ -19,7 +19,7 @@ exports.get = nameSpace =>{
             this.id = id;
         }
 
-        subscribe(userId,accessLevel){  
+        subscribe(userId,accessLevel){
             const room = this.id;
             const query = `INSERT IGNORE INTO ${nameSpaceRSCs}(room,accessLevel,createdAt,updatedAt,user) VALUES (:room,:accessLevel,:now,:now,:userId);`
             return pool.roomWrite(nameSpace,room,query,{
@@ -50,15 +50,15 @@ exports.get = nameSpace =>{
             });
         }
 
-        getSubscribers(){
+        getSubscribers(){// should contain public info
             const room = this.id;
-            const query = `SELECT ${nameSpaceUsers}.* , ${nameSpaceRSCs}.room AS room, ${nameSpaceRSCs}.createdAt AS subscriptionDate FROM ${nameSpaceUsers} INNER JOIN ${nameSpaceRSCs} ON ${nameSpaceUsers}.id = ${nameSpaceRSCs}.user AND ${nameSpaceRSCs}.room = :room ;`;
+            const query = `SELECT ${nameSpaceUsers}.id, ${nameSpaceUsers}.userName, ${nameSpaceRSCs}.room AS room, ${nameSpaceRSCs}.createdAt AS subscriptionDate FROM ${nameSpaceUsers} INNER JOIN ${nameSpaceRSCs} ON ${nameSpaceUsers}.id = ${nameSpaceRSCs}.user AND ${nameSpaceRSCs}.room = :room ;`;
             return pool.roomRead(nameSpace,room,query,{
                 room
             });
         }        
 
-        static getUserPublic(userId){
+        static getUserPublic(userId){// should contain public info
             const query = `SELECT id, userName FROM ${nameSpaceUsers} WHERE id = :userId LIMIT 1;`;
             return pool.userRead(nameSpace,userId,query,{
                 userId
@@ -66,7 +66,7 @@ exports.get = nameSpace =>{
         }
 
         static getUserByMail(mail){
-            const query = `SELECT id, hashedPW , userName, mail, createdAt, updatedAt FROM ${nameSpaceUsers} WHERE mail = :mail LIMIT 1;`;
+            const query = `SELECT id, hashedPW, data, userName, mail, createdAt, updatedAt FROM ${nameSpaceUsers} WHERE mail = :mail LIMIT 1;`;
             return pool.userRead(query,{
                 mail
             }).then(result=>result[0]);
@@ -161,10 +161,9 @@ exports.get = nameSpace =>{
             }).then(result => Object.values(result[0])[0]);
         }
 
-        upsertRecordStatus(userId,recordId,status){
-            const room = this.id;
+        static upsertRecordStatus(userId,recordId,status){
             const query = `INSERT INTO ${nameSpaceESCs} (relation,createdAt,updatedAt,record,user) VALUES (:status,:now,:now,:recordId,:userId) ON DUPLICATE KEY UPDATE relation = :status , updatedAt = :now ;`;
-            return pool.roomWrite(nameSpace,room,query,{
+            return pool.myExecute(query,{
                 status,
                 recordId,
                 userId,
@@ -192,6 +191,7 @@ exports.get = nameSpace =>{
         }
 
         addReference(recordId,userId){
+            Publisher.clearCache(userId);
             const room = this.id;
             const query = `INSERT INTO ${nameSpaceRESCs} (room,record,user,insertedAt) VALUES (:room,:recordId,:userId,:now);`;
             return pool.roomWrite(nameSpace,room,query,{
@@ -201,6 +201,8 @@ exports.get = nameSpace =>{
                 now : moment(Date.now()).format(`YYYY-MM-DD HH:mm:ss`)
             })
         }
+
+        
 
         createRecordWithReference(data,userId){
             let recordId;
@@ -237,8 +239,9 @@ exports.get = nameSpace =>{
 
         getRecord(recordId){
             const room = this.id;
-            const query = `SELECT ${nameSpaceERCs}.id, ${nameSpaceERCs}.data, ${nameSpaceERCs}.createdAt, ${nameSpaceERCs}.updatedAt, ${nameSpaceERCs}.author FROM ${nameSpaceERCs} WHERE ${nameSpaceERCs}.id = :recordId LIMIT 1 ;`
+            const query = `SELECT ${nameSpaceERCs}.id, ${nameSpaceERCs}.data, ${nameSpaceERCs}.createdAt, ${nameSpaceERCs}.updatedAt, ${nameSpaceERCs}.author, ${nameSpaceRESCs}.room AS room FROM ${nameSpaceERCs} INNER JOIN ${nameSpaceRESCs} ON ${nameSpaceERCs}.id = ${nameSpaceRESCs}.record WHERE ${nameSpaceRESCs}.room = :room AND ${nameSpaceERCs}.id = :recordId LIMIT 1 ;`
             return pool.roomRead(nameSpace,room,query,{
+                room,
                 recordId
             }).then(result=>result[0]);
         }
@@ -253,7 +256,7 @@ exports.get = nameSpace =>{
 
         static getRecordsByUserRelation(userId,relation){
             const query = `SELECT ${nameSpaceERCs}.id, ${nameSpaceERCs}.data, ${nameSpaceERCs}.createdAt, ${nameSpaceERCs}.updatedAt, ${nameSpaceERCs}.author, ${nameSpaceESCs}.user AS userId FROM ${nameSpaceERCs} INNER JOIN ${nameSpaceESCs} ON ${nameSpaceERCs}.id = ${nameSpaceESCs}.record AND ${nameSpaceESCs}.relation = :relation WHERE ${nameSpaceESCs}.user = :userId`;
-            return pool.userRead(nameSpace,userId,query,{
+            return pool.myExecute(nameSpace,userId,query,{
                 userId,
                 relation
             });
@@ -298,7 +301,8 @@ exports.get = nameSpace =>{
                 userId,
                 data : JSON.stringify(data),
                 now : moment(Date.now()).format(`YYYY-MM-DD HH:mm:ss`)
-            });
+            })
+            .then(({insertId})=>insertId);
         }
 
         createNestedRoom(userId,data){
@@ -348,7 +352,7 @@ exports.get = nameSpace =>{
 
         getSubscribersCount(){
             const room = this.id;
-            const query = `SELECT COUNT(*) FROM ${nameSpaceRSCs} WHERE room = :room ;`;
+            const query = `SELECT COUNT(*) AS counter FROM ${nameSpaceRSCs} WHERE room = :room ;`;
             return pool.roomRead(nameSpace,room,query,{
                 room
             })
