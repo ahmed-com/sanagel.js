@@ -6,6 +6,7 @@ const bodyParser = require('body-parser');
 const redis = require('./utils/redis');
 
 redis.init();
+require('./services/cache');
 
 const path = require('path');
 const publicPath = path.join(__dirname,'/../../client');
