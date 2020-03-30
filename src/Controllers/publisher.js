@@ -36,7 +36,7 @@ exports.subscribe =async (req,res,next)=>{
         const publisher = new Publisher(room);
         const result = await publisher.getData();
         if(!result) throw404('Room Not Found');
-        if(result.channel && result.channel.private) throw403('Unauthorized Action');
+        if(result.data.channel && result.data.channel.private) throw403('Unauthorized Action');
         const accessLevel = result.data.defaultAccessLevel || accessLevels.read_only;
         await publisher.subscribe(userId,accessLevel);
         res.status(200).json({
@@ -183,12 +183,12 @@ exports.getSubscribers =async (req,res,next)=>{
         const Publisher = req.Publisher;
         const room = req.body.room;
         const publisher = new Publisher(room);
-        const data = await publisher.getData();
-        if(!data) throw404('Room Not Found!');
-        if(data.channel){
+        const result = await publisher.getData();
+        if(!result) throw404('Room Not Found!');
+        if(result.data.channel){
             const isSubscriber = await publisher.isSubscriber(userId);
             if(!isSubscriber){
-                if(data.channel.private) throw404('Room Not Found!');
+                if(result.data.channel.private) throw404('Room Not Found!');
                 throw403('Unauthorised Request');
             }
         }
@@ -211,11 +211,11 @@ exports.createRecord =async (req,res,next)=>{
         const userId = req.body.userId;  
         const data = req.body.data;
         const publisher = new Publisher(room);
-        const roomData = publisher.getData();
-        if(!roomData) throw404('Room Not Found!');
+        const result = publisher.getData();
+        if(!result) throw404('Room Not Found!');
         const accessLevel = publisher.getAccessLevel(userId);
         if(!accessLevel){
-            if(roomData.channel && roomData.channel.private) throw404('Room Not Found!');
+            if(result.data.channel && result.data.channel.private) throw404('Room Not Found!');
             throw403('Unauthorized Action');
         }
         if(!canWrite(accessLevel)) throw403('Unauthorized Action');
@@ -258,12 +258,12 @@ exports.getRecord =async (req,res,next)=>{
         const recordId = req.body.recordId;
         const userId = req.body.userId;
         const publisher = new Publisher(room);
-        const data = await publisher.getData();
-        if(!data) throw404('Room Not Found!');
-        if(data.channel){
+        const result = await publisher.getData();
+        if(!result) throw404('Room Not Found!');
+        if(result.data.channel){
             const isSubscriber = await publisher.isSubscriber(userId);
             if(!isSubscriber){
-                if(data.channel.private) throw404('Room Not Found!');
+                if(result.data.channel.private) throw404('Room Not Found!');
                 throw403('Unauthorized Action');
             }
         }
@@ -356,12 +356,12 @@ exports.getAllRecords =async (req,res,next)=>{
         const room = req.body.room;
         const userId = req.body.userId;
         const publisher = new Publisher(room);
-        const data = await publisher.getData();
-        if(!data) throw404('Room Not Found!');
-        if(data.channel){
+        const result = await publisher.getData();
+        if(!result) throw404('Room Not Found!');
+        if(result.data.channel){
             const isSubscriber = publisher.isSubscriber(userId);
             if(!isSubscriber){
-                if(data.channel.private) throw404('Room Not Found!');
+                if(result.data.channel.private) throw404('Room Not Found!');
                 throw403('Unauthorized Action');
             }
         }
@@ -439,12 +439,12 @@ exports.seenCheck =async (req,res,next)=>{//this'll be called as a confirmation 
         const userId = req.body.userId;
         const recordId = req.body.recordId;
         const publisher = new Publisher(room);
-        const data = await publisher.getData();
+        const result = await publisher.getData();
         if(!data) throw404('Room Not Found!');
-        if(data.channel){
+        if(result.data.channel){
             const isSubscriber = await publisher.isSubscriber(userId);
             if(!isSubscriber){
-                if(data.channel.private) throw404('Room Not Found!');
+                if(result.data.channel.private) throw404('Room Not Found!');
                 throw403('Unauthorized Action');
             }
         }
