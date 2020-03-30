@@ -34,7 +34,7 @@ const hset = client.hset;
 
 const del = client.del;
 
-const recordRead = async (nameSpace,room,query,data)=>{
+const roomRead = async (nameSpace,room,query,data)=>{
     const key = JSON.stringify({nameSpace,room});
     const field = JSON.stringify({query,data});
     const cachedResult = await hget(key,field);
@@ -49,7 +49,7 @@ const recordRead = async (nameSpace,room,query,data)=>{
     return result;
 }
 
-const recordWrite = async (nameSpace,room,query,data)=>{
+const roomWrite = async (nameSpace,room,query,data)=>{
     setImmediate(()=>{
         const key = JSON.stringify({nameSpace,room});
         del(key);
@@ -59,8 +59,8 @@ const recordWrite = async (nameSpace,room,query,data)=>{
 
 pool.myExecute = execute;
 
-pool.recordRead = recordRead;
+pool.roomRead = roomRead;
 
-pool.recordWrite = recordWrite;
+pool.roomWrite = roomWrite;
 
 module.exports = pool;
