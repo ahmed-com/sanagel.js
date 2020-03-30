@@ -10,6 +10,7 @@ exports.get = nameSpace =>{
     const nameSpaceESCs = `T${nameSpace}ESCs`;
     const nameSpaceRSCs = `T${nameSpace}RSCs`;
     const nameSpaceUsers = `T${nameSpace}Users`;
+    const nameSpaceRESCs = `T${nameSpace}RESCs`;
 
     const IO = io.of(`/${nameSpace}`);
 
@@ -111,13 +112,32 @@ exports.get = nameSpace =>{
             return Object.keys(IO.connected).includes(socketId);
         }
 
-        static getRoomsByUser(userId){
+        static getRoomsByUser(userId){// might be a bit misleading
             const query = `SELECT ${nameSpaceRRCs}.* , ${nameSpaceRSCs}.createdAt AS subscriptionDate, ${nameSpaceRSCs}.accessLevel AS accessLevel FROM ${nameSpaceRRCs} INNER JOIN ${nameSpaceRSCs} ON ${nameSpaceRRCs}.id = ${nameSpaceRSCs}.room AND ${nameSpaceRSCs}.user = :userId ;`;
             return pool.myExecute(query,{
                 userId
             })
             .then(rooms=> rooms.map(room => new Publisher(room.id)));
         }
+
+        static getRoomsByRecord(recordId){
+            const query = `SELECT DISTINCT ${nameSpaceRESCs}.room AS id FROM ${nameSpaceRESCs} WHERE ${nameSpaceRESCs}.record = :recordId;`;
+            return pool.myExecute(query,{
+                recordId
+            })
+            .then(rooms=> rooms.map(room => new Publisher(room.id)));
+        }
+
+        getRecordRelationCount(recordId,status){
+            const room = this.id;
+            const query = `SELECT COUNT(*) AS counter FROM ${nameSpaceESCs} WHERE record = :recordId AND relation = :status;`;
+            return pool.recordRead(nameSpace,room,query,{
+                recordId,
+                relation
+            })
+        }
+
+
 
         getAccessLevel(userId){
             const room = this.id;
@@ -164,6 +184,38 @@ exports.get = nameSpace =>{
                 userId,
                 now : moment(Date.now()).format(`YYYY-MM-DD HH:mm:ss`)
             });
+        }
+
+        addReference(recordId,userId){
+            const room = this.id;
+            const query = `INSERT INTO ${nameSpaceRESCs} (room,record,user,insertedAt) VALUES (:room,:recordId,:userId,:now);`;
+            return pool.recordWrite(nameSpace,room,query,{
+                room,
+                recordId,
+                userId,
+                now : moment(Date.now()).format(`YYYY-MM-DD HH:mm:ss`)
+            })
+        }
+
+        removeReference(recordId,userId){
+            const room = this.id;
+            const query = `DELETE FROM ${nameSpaceRESCs} where room = :room AND user = :userId AND record = :recordId ;`;
+            return pool.recordWrite(nameSpace,room,query,{
+                room,
+                recordId,
+                userId
+            })
+        }
+
+        changeReference(recordId,userId,roomId){
+            const room = this.id;
+            const query = `UPDATE ${nameSpaceRESCs} SET room = :roomId, insertedAt= :now WHERE record = :recordId AND user = :userId AND room = :room`;
+            return pool.recordWrite(nameSpace,room,query,{
+                recordId,
+                userId,
+                room,
+                roomId
+            })
         }
 
         getRecord(recordId){

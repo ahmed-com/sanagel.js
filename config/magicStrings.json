@@ -10,7 +10,10 @@
         "recordUpdated" : "recordUpdated",
         "recordDeleted" : "recordDeleted",
         "seen" : "seen",
-        "delivered" : "delivered"
+        "delivered" : "delivered",
+        "recordCopied" : "recordCopied",
+        "recordRemoved" : "recordRemoved",
+        "recordAdded" : "recordAdded"
     },
     "accessLevels" : {
         "read_write_invite_remove_notify" : 0,
