@@ -1,8 +1,9 @@
 const jwt = require('jsonwebtoken');
-const { throw401, throw422 } = require('../scripts/errors');
+const { throw401, throw400, throw422 } = require('../scripts/errors');
 
 module.exports = (req,res,next)=>{
     try{
+        const Publisher = req.Publisher;
         const authHeader = req.get('Authorization');
         if(!authHeader) throw401('Not Authenticated');
         const token = req.get('Authorization').split(' ')[1];
@@ -14,6 +15,7 @@ module.exports = (req,res,next)=>{
             throw401('Invalid Token');
         }
         if(!decodedToken) throw401('Not Authenticated');
+        if(decodedToken.nameSpace !== Publisher.getName()) throw400('Bad Request');
         req.userId = decodedToken.userId;
         next();
     }catch(err){

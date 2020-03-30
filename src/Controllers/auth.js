@@ -39,7 +39,8 @@ exports.signIn =async (req,res,next)=>{
         const isEqual = await bcrypt.compare(password,user.hashedPW);
         if(!isEqual) throw401('Wrong Password');
         const userId = user.id;
-        const token = jwt.sign({mail,userId},process.env.PRIVATEKEY,{expiresIn : '7d'});
+        const nameSpace = Publisher.getName();
+        const token = jwt.sign({nameSpace,userId},process.env.PRIVATEKEY,{expiresIn : '7d'});
         res.status(200).json({
             message : "The Token Requested",
             token,

@@ -19,6 +19,10 @@ exports.get = nameSpace =>{
             this.id = id;
         }
 
+        static getName(){
+            return nameSpace;
+        }
+
         subscribe(userId,accessLevel){
             const room = this.id;
             const query = `INSERT IGNORE INTO ${nameSpaceRSCs}(room,accessLevel,createdAt,updatedAt,user) VALUES (:room,:accessLevel,:now,:now,:userId);`
