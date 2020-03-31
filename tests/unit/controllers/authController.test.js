@@ -97,7 +97,8 @@ describe('signIn',()=>{
         let statusCode;
         const req = {
             Publisher :{
-                getUserByMail : jest.fn().mockResolvedValue({id : 1,hashedPW : 'a'})
+                getUserByMail : jest.fn().mockResolvedValue({id : 1,hashedPW : 'a'}),
+                getName : jest.fn().mockReturnValue('nameSpace')
             },
             body : {
                 mail : 'a',
