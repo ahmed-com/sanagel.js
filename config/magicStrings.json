@@ -10,7 +10,13 @@
         "recordUpdated" : "recordUpdated",
         "recordDeleted" : "recordDeleted",
         "seen" : "seen",
-        "delivered" : "delivered"
+        "delivered" : "delivered",
+        "recordCopied" : "recordCopied",
+        "recordRemoved" : "recordRemoved",
+        "recordAdded" : "recordAdded",
+        "roomCreated" : "roomCreated",
+        "decrementCopies" : "decrementCopies",
+        "incrementCopies" : "incrementCopies"
     },
     "accessLevels" : {
         "read_write_invite_remove_notify" : 0,

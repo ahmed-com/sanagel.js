@@ -5,9 +5,9 @@ const {canWrite, canInvite , canRemove, addNotify, hasNotify , stripNotify} = re
 exports.createRoom = async (req,res,next)=>{
     try{
         const Publisher = req.Publisher;
-        const userId = req.body.userId;
+        const userId = req.userId;
         const data = req.body.data;
-        const {insertId} = await Publisher.createRoom(userId,data);
+        const insertId = await Publisher.createRoom(userId,data);
         res.status(201).json({
             message : "Room Created Successfully",
             room : {
@@ -28,15 +28,54 @@ exports.createRoom = async (req,res,next)=>{
     }
 }
 
+exports.createNestedRoom = async (req,res,next)=>{
+    try{
+        const Publisher = req.Publisher
+        const room = req.body.room;
+        const userId = req.userId;  
+        const data = req.body.data;
+        const publisher = new Publisher(room);
+        const result = await publisher.getData();
+        if(!result) throw404('Room Not Found!');
+        const accessLevel = await publisher.getAccessLevel(userId);
+        if(!accessLevel){
+            if(result.data.channel && result.data.channel.private) throw404('Room Not Found!');
+            throw403('Unauthorized Action');
+        }
+        if(!canWrite(accessLevel)) throw403('Unauthorized Action');
+        const insertId = await Publisher.createNestedRoom(userId,data);
+        const nestedRoom = {
+            id :insertId,
+            parent : room,
+            admin : userId,
+            data
+        }
+        res.status(201).json({
+            message : "Room Created Successfully",
+            nestedRoom
+        });
+        const nestedPublisher = new Publisher(insertId);
+        await nestedPublisher.subscribe(userId,accessLevels.read_write_invite_remove_notify);
+        const socketId = await Publisher.getSocketId(userId);
+        if(socketId) nestedPublisher.join(socketId);
+        const user = await Publisher.getUserPublic(userId);
+        publisher.emit(events.roomCreated,JSON.stringify({user , nestedRoom}));
+        return;
+    }catch(err){
+        next(err);
+        return;
+    }
+}
+
 exports.subscribe =async (req,res,next)=>{
     try{
         const Publisher = req.Publisher
         const room = req.body.room;
-        const userId = req.body.userId;
+        const userId = req.userId;
         const publisher = new Publisher(room);
         const result = await publisher.getData();
         if(!result) throw404('Room Not Found');
-        if(result.channel && result.channel.private) throw403('Unauthorized Action');
+        if(result.data.channel && result.data.channel.private) throw403('Unauthorized Action');
         const accessLevel = result.data.defaultAccessLevel || accessLevels.read_only;
         await publisher.subscribe(userId,accessLevel);
         res.status(200).json({
@@ -45,7 +84,7 @@ exports.subscribe =async (req,res,next)=>{
         const socketId = await Publisher.getSocketId(userId);
         if(socketId) publisher.join(socketId);                
         const user = await Publisher.getUserPublic(userId);    
-        publisher.emit(events.subscribtion,JSON.stringify(user));// be careful of what you emit
+        publisher.emit(events.subscribtion,JSON.stringify(user));
         return;
     }catch(err){
         next(err);
@@ -56,7 +95,7 @@ exports.subscribe =async (req,res,next)=>{
 exports.join =async (req,res,next)=>{
     try{
         const Publisher = req.Publisher
-        const userId = req.body.userId;
+        const userId = req.userId;
         const socketId = req.body.socketId;
         Publisher.setSocketId(socketId,userId);
         const rooms =await Publisher.getRoomsByUser(userId);
@@ -67,7 +106,7 @@ exports.join =async (req,res,next)=>{
         const user = await Publisher.getUserPublic(userId);
         rooms.forEach(room => {
             room.join(socketId);
-            room.emit(events.online,JSON.stringify(user));// be careful of what you emit
+            room.emit(events.online,JSON.stringify(user));
         });
         return;
     }catch(err){
@@ -79,7 +118,7 @@ exports.join =async (req,res,next)=>{
 exports.leave =async (req,res,next)=>{
     try{
         const Publisher = req.Publisher
-        const userId = req.body.userId;
+        const userId = req.userId;
         const socketId =await Publisher.getSocketId(userId);
         if(!socketId) throw400('something went wrong');
         Publisher.removeSocketId(userId);
@@ -90,7 +129,7 @@ exports.leave =async (req,res,next)=>{
         const user = await Publisher.getUserPublic(userId);
         rooms.forEach(room => {
             room.leave(socketId);
-            room.emit(events.offline,JSON.stringify(user));// be careful of what you emit
+            room.emit(events.offline,JSON.stringify(user));
         });
         return;
     }catch(err){
@@ -103,7 +142,7 @@ exports.unsubscribe =async (req,res,next)=>{
     try{
         const Publisher = req.Publisher
         const room = req.body.room;
-        const userId = req.body.userId;
+        const userId = req.userId;
         const publisher = new Publisher(room);
         const roomExists = await publisher.exists();
         if(!roomExists) throw404('Room Not Found!');
@@ -114,7 +153,7 @@ exports.unsubscribe =async (req,res,next)=>{
         const socketId = await Publisher.getSocketId(userId);
         if(socketId) publisher.leave(socketId);
         const user = await Publisher.getUserPublic(userId);
-        publisher.emit(events.unsubscribtion,JSON.stringify(user));// be careful of what you emit
+        publisher.emit(events.unsubscribtion,JSON.stringify(user));
         return;
     }catch(err){
         next(err);
@@ -125,7 +164,7 @@ exports.unsubscribe =async (req,res,next)=>{
 exports.remove =async (req,res,next)=>{
     try{
         const Publisher = req.Publisher;
-        const userId = req.body.userId;
+        const userId = req.userId;
         const room = req.body.room;
         const removedId = req.body.removedId;
         const publisher = new Publisher(room);
@@ -139,7 +178,7 @@ exports.remove =async (req,res,next)=>{
             message : 'Removed successfuly'
         });
         const remover = await publisher.getUserPublic(userId);
-        publisher.emit(events.removed,JSON.stringify({user,remover}));// be careful of what you emit
+        publisher.emit(events.removed,JSON.stringify({user,remover}));
         const socketId = await Publisher.getSocketId(removedId);
         if(socketId) publisher.leave(socketId);
         return;
@@ -153,7 +192,7 @@ exports.invite = async (req,res,next) =>{
     try{
         const Publisher = req.Publisher;
         const room = req.body.room;
-        const userId = req.body.userId;
+        const userId = req.userId;
         const invitedId = req.body.invitedId;
         const inviteAccessLevel = req.body.inviteAccessLevel;
         const publisher = new Publisher(room);
@@ -168,7 +207,7 @@ exports.invite = async (req,res,next) =>{
             message : 'Invited Successfuly'
         });
         const inviter = await publisher.getUserPublic(userId);
-        publisher.emit(events.invited,JSON.stringify({user,inviter}));// be careful of what you emit
+        publisher.emit(events.invited,JSON.stringify({user,inviter}));
         const socketId = await Publisher.getSocketId(invitedId);
         if(socketId) publisher.join(socketId);
         return;
@@ -182,13 +221,14 @@ exports.getSubscribers =async (req,res,next)=>{
     try{
         const Publisher = req.Publisher;
         const room = req.body.room;
+        const userId = req.userId;
         const publisher = new Publisher(room);
-        const data = await publisher.getData();
-        if(!data) throw404('Room Not Found!');
-        if(data.channel){
+        const result = await publisher.getData();
+        if(!result) throw404('Room Not Found!');
+        if(result.data.channel){
             const isSubscriber = await publisher.isSubscriber(userId);
             if(!isSubscriber){
-                if(data.channel.private) throw404('Room Not Found!');
+                if(result.data.channel.private) throw404('Room Not Found!');
                 throw403('Unauthorised Request');
             }
         }
@@ -196,7 +236,34 @@ exports.getSubscribers =async (req,res,next)=>{
         res.status(200).json({
             message : "Subscribers Requested",
             subscribers
-        });//CAUTION - WARNING - BE CAREFUL
+        });
+        return;
+    }catch(err){
+        next(err);
+        return;
+    }
+}
+
+exports.getNestedRooms = async (req,res,next)=>{
+    try{
+        const Publisher = req.Publisher
+        const room = req.body.room;
+        const userId = req.userId;
+        const publisher = new Publisher(room);
+        const result = await publisher.getData();
+        if(!result) throw404('Room Not Found!');
+        if(result.data.channel){
+            const isSubscriber = publisher.isSubscriber(userId);
+            if(!isSubscriber){
+                if(result.data.channel.private) throw404('Room Not Found!');
+                throw403('Unauthorized Action');
+            }
+        }
+        const rooms = await publisher.getNestedRooms();
+        res.status(200).json({
+            message : 'Records requested',
+            records
+        });
         return;
     }catch(err){
         next(err);
@@ -208,13 +275,18 @@ exports.createRecord =async (req,res,next)=>{
     try{
         const Publisher = req.Publisher
         const room = req.body.room;
-        const userId = req.body.userId;  
+        const userId = req.userId;  
         const data = req.body.data;
         const publisher = new Publisher(room);
-        const accessLevel = publisher.getAccessLevel(userId);
-        if(!accessLevel) throw404('Room Not Found!');
+        const result = await publisher.getData();
+        if(!result) throw404('Room Not Found!');
+        const accessLevel = await publisher.getAccessLevel(userId);
+        if(!accessLevel){
+            if(result.data.channel && result.data.channel.private) throw404('Room Not Found!');
+            throw403('Unauthorized Action');
+        }
         if(!canWrite(accessLevel)) throw403('Unauthorized Action');
-        const {insertId} =await publisher.createRecord(data,userId);
+        const insertId =await publisher.createRecordWithReference(data,userId);
         const record = {
             id : insertId,
             author : userId,
@@ -230,14 +302,15 @@ exports.createRecord =async (req,res,next)=>{
             for(subscriber of subscribers){
                 let socketId = await Publisher.getSocketId(subscriber.id);
                 if(socketId){
-                    await publisher.upsertRecordStatus(subscriber.id,record.id,relations.delivered);
+                    await Publisher.upsertRecordStatus(subscriber.id,record.id,relations.delivered);
+                    const user = Publisher.getUserPublic(subscriber.id);
                     publisher.emit(events.delivered , JSON.stringify({user , record}));
                 }else{
-                    await publisher.upsertRecordStatus(subscriber.id,record.id,relations.unseen);
+                    await Publisher.upsertRecordStatus(subscriber.id,record.id,relations.unseen);
                 }
             }
         })();
-        await publisher.upsertRecordStatus(userId,record.id,relations.owner);// I'm not sure about this
+        await Publisher.upsertRecordStatus(userId,record.id,relations.owner);
         return;
     }catch(err){
         next(err);
@@ -250,15 +323,14 @@ exports.getRecord =async (req,res,next)=>{
         const Publisher = req.Publisher
         const room = req.body.room;
         const recordId = req.body.recordId;
-        const userId = req.body.userId;
+        const userId = req.userId;
         const publisher = new Publisher(room);
-        const relation = await publisher.getRecordStatus(recordId,userId);
-        const data = await publisher.getData();
-        if(!data) throw404('Room Not Found!');
-        if(data.channel){
+        const result = await publisher.getData();
+        if(!result) throw404('Room Not Found!');
+        if(result.data.channel){
             const isSubscriber = await publisher.isSubscriber(userId);
             if(!isSubscriber){
-                if(data.channel.private) throw404('Room Not Found!');
+                if(result.data.channel.private) throw404('Room Not Found!');
                 throw403('Unauthorized Action');
             }
         }
@@ -269,11 +341,16 @@ exports.getRecord =async (req,res,next)=>{
             message : "Record Requesed",
             record
         });
+        const relation = await publisher.getRecordStatus(recordId,userId);
         if(record.author === userId) return;
-        if(relation !== relations.seen){
-            publisher.upsertRecordStatus(userId,recordId,relations.seen);
-            publisher.emit(events.seen,JSON.stringify({user , record}));/* CAUTION - WARNING - BE CAREFUL */
-        }
+        if(relation === relations.seen || relation === relations.owner) return;
+        const user = await Publisher.getUserPublic(userId);
+        Publisher.upsertRecordStatus(userId,recordId,relations.seen);
+        const rooms= await Publisher.getRoomsByRecord(recordId);
+        rooms.forEach(room=>{
+            room.emit(events.seen,JSON.stringify({user , record}));
+            room.clearCache();
+        });
         return;
     }catch(err){
         next(err);
@@ -287,19 +364,23 @@ exports.updateRecord =async (req,res,next)=>{
         const room = req.body.room;
         const data = req.body.data;
         const recordId = req.body.recordId;
-        const userId = req.body.userId;
+        const userId = req.userId;
         const publisher = new Publisher(room);
         const roomExists = await publisher.exists();
         if(!roomExists) throw404('Room Not Found!');
         const record = await publisher.getRecord(recordId);
         if(!record) throw404('Record Not Found');
-        if(record.author != userId) throw403('Unauthorized Action');
+        if(record.author !== userId) throw403('Unauthorized Action');
         if(record.room !== room) throw400('Bad Request');
         await publisher.updateRecord(recordId,data);
         res.status(202).json({
             message : 'Updated successfully'
         })
-        publisher.emit(events.recordUpdated,JSON.stringify(record));
+        const rooms = await Publisher.getRoomsByRecord(recordId);
+        rooms.forEach(room=>{
+            room.emit(events.recordUpdated,JSON.stringify(record));
+            room.clearCache();
+        })
         return;
     }catch(err){
         next(err);
@@ -312,7 +393,7 @@ exports.deleteRecord =async (req,res,next)=>{
         const Publisher = req.Publisher
         const room = req.body.room;
         const recordId = req.body.recordId;
-        const userId = req.body.userId;
+        const userId = req.userId;
         const publisher = new Publisher(room);
         const roomExists = await publisher.exists();
         if(!roomExists) throw404('Room Not Found!');
@@ -324,7 +405,11 @@ exports.deleteRecord =async (req,res,next)=>{
         res.status(202).json({
             message : 'Deleted successfully'
         })
-        publisher.emit(events.recordDeleted,recordId);
+        const rooms = await Publisher.getRoomsByRecord(recordId);
+        rooms.forEach(room=>{
+            room.emit(events.recordDeleted,recordId);
+            room.clearCache();
+        });
         return;
     }catch(err){
         next(err);
@@ -336,14 +421,14 @@ exports.getAllRecords =async (req,res,next)=>{
     try{
         const Publisher = req.Publisher
         const room = req.body.room;
-        const userId = req.body.userId;
+        const userId = req.userId;
         const publisher = new Publisher(room);
-        const data = await publisher.getData();
-        if(!data) throw404('Room Not Found!');
-        if(data.channel){
+        const result = await publisher.getData();
+        if(!result) throw404('Room Not Found!');
+        if(result.data.channel){
             const isSubscriber = publisher.isSubscriber(userId);
             if(!isSubscriber){
-                if(data.channel.private) throw404('Room Not Found!');
+                if(result.data.channel.private) throw404('Room Not Found!');
                 throw403('Unauthorized Action');
             }
         }
@@ -356,9 +441,13 @@ exports.getAllRecords =async (req,res,next)=>{
         records.forEach(async record=>{
             if(record.author !== userId){
                 const relation = await publisher.getRecordStatus(record.id,userId);
-                if(relation !== relations.seen){
-                    publisher.upsertRecordStatus(userId,recordId,relations.seen);
-                    publisher.emit(events.seen,JSON.stringify({user , record}));/* CAUTION - WARNING - BE CAREFUL */
+                if(relation !== relations.seen || relation !== relations.owner){
+                    Publisher.upsertRecordStatus(userId,record.id,relations.seen);
+                    const rooms = await Publisher.getRoomsByRecord(record.id);
+                    rooms.forEach(room=>{
+                        room.emit(events.seen,JSON.stringify({user , record}));
+                        room.clearCache();
+                    })
                 }
             }
         });
@@ -372,17 +461,20 @@ exports.getAllRecords =async (req,res,next)=>{
 exports.getUnseenRecords =async (req,res,next)=>{ // this function is for notification display
     try{
         const Publisher = req.Publisher;
-        const userId = req.body.userId;
-        const records = await Publisher.getRecordsByUser(userId,relations.unseen);
-        const user = Publisher.getUserPublic(userId);
+        const userId = req.userId;
+        const records = await Publisher.getRecordsByUserRelation(userId,relations.unseen);
         res.status(200).json({
             message : 'Records requested',
             records
         });
+        Publisher.upsertRecordStatus(userId,record.id,relations.delivered);
+        const user = Publisher.getUserPublic(userId);
         records.forEach(async record=>{
-            let publisher = new Publisher(record.room);
-            await publisher.upsertRecordStatus(userId,record.id,relations.delivered);
-            publisher.emit(events.delivered,JSON.stringify({user , record}));// be careful of what you emit
+            const rooms = await Publisher.getRoomsByRecord(record.id);
+            rooms.forEach(room=>{
+                room.emit(events.delivered,JSON.stringify({user , record}));
+                room.clearCache();
+            })
         });
         return;
     }catch(err){
@@ -394,8 +486,8 @@ exports.getUnseenRecords =async (req,res,next)=>{ // this function is for notifi
 exports.getUserRecords = async (req,res,next)=>{
     try{
         const Publisher = req.Publisher;
-        const userId = req.body.userId;
-        const records = await Publisher.getRecordsByUser(userId,relations.owner);
+        const userId = req.userId;
+        const records = await Publisher.getRecordsByUserRelation(userId,relations.owner);
         res.status(200).json({
             message : 'Records requested',
             records
@@ -411,26 +503,175 @@ exports.seenCheck =async (req,res,next)=>{//this'll be called as a confirmation 
     try{
         const Publisher = req.Publisher;
         const room = req.body.room;
-        const userId = req.body.userId;
+        const userId = req.userId;
         const recordId = req.body.recordId;
         const publisher = new Publisher(room);
-        const roomExists = await publisher.exists();
-        if(!roomExists) throw404('Room Not Found!');
+        const result = await publisher.getData();
+        if(!data) throw404('Room Not Found!');
+        if(result.data.channel){
+            const isSubscriber = await publisher.isSubscriber(userId);
+            if(!isSubscriber){
+                if(result.data.channel.private) throw404('Room Not Found!');
+                throw403('Unauthorized Action');
+            }
+        }
         const record = await publisher.getRecord(recordId);
         if(!record) throw404('Record Not Found');
-        if(record.room !== room) throw400('Bad Request');
         const relation = await publisher.getRecordStatus(recordId);
-        if(relation !== relations.seen){ 
-            await publisher.upsertRecordStatus(userId,recordId,relations.seen);
-            res.status(202).json({
-                message : 'Seen Successfully'
-            });
-            const user =await Publisher.getUserPublic(userId);
-            publisher.emit(events.seen,JSON.stringify({user,record}));// be careful of what you emit
-            return;
-        }else{
-            throw400('Bad Request');
+        if(relation === relations.seen || relation === relations.owner) throw400('Bad Request');
+        await Publisher.upsertRecordStatus(userId,recordId,relations.seen);
+        res.status(202).json({
+            message : 'Seen Successfully'
+        });
+        const user =await Publisher.getUserPublic(userId);
+        const rooms = await Publisher.getRoomsByRecord(recordId);
+        rooms.forEach(room=>{
+            room.emit(events.seen,JSON.stringify({user,record}));
+            room.clearCache();
+        });
+        return;
+    }catch(err){
+        next(err);
+        return;
+    }
+}
+
+exports.copyRecord = async (req,res,next)=>{
+    try{
+        const Publisher = req.Publisher;
+        const recordId = req.body.recordId;
+        const room = req.body.room;
+        const userId = req.userId;
+        const destination = req.body.destination;
+        const publisher = new Publisher(room);
+        const result = await publisher.getData();
+        if(!result) throw404('Room Not Found!');
+        if(result.data.channel){
+            const isSubscriber = await publisher.isSubscriber(userId);
+            if(!isSubscriber){
+                if(result.data.channel.private) throw404('Room Not Found!');
+                throw403('Unauthorized Action');
+            }
         }
+        const record =await publisher.getRecord(recordId);
+        if(!record) throw404('Record Not Found!');
+        if(!record.data.sharable) throw403('Unauthorized Action');
+        const destinationPublisher = new Publisher(destination);
+        const duplicateRecord = await destinationPublisher.isHost(recordId,userId);
+        if(duplicateRecord) throw400('Dublicate Record');
+        const accessLevel = await destinationPublisher.getAccessLevel(userId);
+        if(!accessLevel){
+            const result = await destinationPublisher.getData();
+            if(!result) throw404('Room Not Found');
+            if(result.data.channel && result.data.channel.private) throw404('Room Not Found!');
+            throw403('Unauthorized Action');
+        }
+        if(!canWrite(accessLevel)) throw403('Unauthorized Action');
+        await destinationPublisher.addReference(recordId,userId);
+        res.status(201).json({
+            message : "copied successfully"
+        });
+        const user = await Publisher.getUserPublic(userId);
+        destinationPublisher.emit(events.recordCopied,JSON.stringify({user,record}));
+        const relation = await destinationPublisher.getRecordStatus(recordId,userId);
+        if(relation !== relations.owner){
+            Publisher.upsertRecordStatus(userId,recordId,relations.owner);
+        }
+        const rooms = await Publisher.getRoomsByRecord(recordId);
+        rooms.forEach(room=>{
+            if(room.id !== destination){
+                room.emit(events.incrementCopies,recordId);
+                room.clearCache();
+            }
+        });
+        return;
+    }catch(err){
+        next(err);
+        return;
+    }
+}
+
+exports.cutRecord = async (req,res,next)=>{
+    try{
+        const Publisher = req.Publisher;
+        const recordId = req.body.recordId;
+        const room = req.body.room;
+        const userId = req.userId;
+        const destination = req.body.destination;
+        const publisher = new Publisher(room);
+        const result = await publisher.getData();
+        if(!result) throw404('Room Not Found!');
+        if(result.data.channel){
+            const isSubscriber = await publisher.isSubscriber(userId);
+            if(!isSubscriber){
+                if(result.data.channel.private) throw404('Room Not Found!');
+                throw403('Unauthorized Action');
+            }
+        }
+        const record =await publisher.getRecord(recordId);
+        if(!record) throw404("Record Not Found!");
+        const isHost = await publisher.isHost(recordId,userId);
+        if(!isHost) throw403('Unauthorized Action!');
+        if(!record.data.sharable) throw403('Unauthorized Action');
+        const destinationPublisher = new Publisher(destination);
+        const duplicateRecord = await destinationPublisher.isHost(recordId,userId);
+        if(duplicateRecord) throw400('Dublicate Record');
+        const accessLevel = await destinationPublisher.getAccessLevel(userId);
+        if(!accessLevel){
+            const result = await destinationPublisher.getData();
+            if(!result) throw404('Room Not Found');
+            if(result.data.channel && result.data.channel.private) throw404('Room Not Found!');
+            throw403('Unauthorized Action');
+        }
+        if(!canWrite(accessLevel)) throw403('Unauthorized Action');
+        await publisher.changeReference(recordId,userId,destination);
+        res.status(201).json({
+            message : "cutted successfully"
+        });
+        const user = await Publisher.getUserPublic(userId);
+        destinationPublisher.emit(events.recordAdded,JSON.stringify({user,record}));
+        destinationPublisher.clearCache();
+        publisher.emit(events.recordRemoved,recordId);
+        return;
+    }catch(err){
+        next(err);
+        return;
+    }
+}
+
+exports.removeRecord = async (req,res,next)=>{
+    try{
+        const Publisher = req.Publisher
+        const room = req.body.room;
+        const recordId = req.body.recordId;
+        const userId = req.userId;
+        const publisher = new Publisher(room);
+        const result = await publisher.getData();
+        if(!result) throw404('Room Not Found!');
+        if(result.data.channel){
+            const isSubscriber = await publisher.isSubscriber(userId);
+            if(!isSubscriber){
+                if(result.data.channel.private) throw404('Room Not Found!');
+                throw403('Unauthorized Action');
+            }
+        }
+        const record = await publisher.getRecord(recordId);
+        if(!record) throw404('Record Not Found');
+        const isHost = await publisher.isHost(recordId,userId);
+        if(!isHost) throw403('Unauthorized Action');
+        await publisher.removeReference(recordId,userId);            
+        res.status(202).json({
+            message : 'Removed successfully'
+        });
+        publisher.emit(events.recordRemoved,recordId);
+        const rooms = await Publisher.getRoomsByRecord(recordId);
+        rooms.forEach(room=>{
+            if(room.id !== publisher.id){
+                room.emit(events.decrementCopies,recordId);
+                room.clearCache();
+            }
+        });
+        return;
     }catch(err){
         next(err);
         return;
@@ -441,11 +682,17 @@ exports.deleteRoom =async (req,res,next)=>{// I'm Not Sure About This At All
     try{
         const Publisher = req.Publisher;
         const room = req.body.room;
-        const userId = req.body.userId;
+        const userId = req.userId;
         const publisher = new Publisher(room);
         const result = await publisher.getData();
         if(!result) throw404('Room Not Found!');
-        if(result.admin !== userId) throw403('Unauthorized Action');
+        if(result.data.channel && result.data.channel.private){
+            if(result.admin !== userId){
+                const isSubscriber = publisher.isSubscriber(userId);
+                if(isSubscriber) throw404('Room Not Found!');
+                throw403('Unauthorized Action');
+            }
+        }
         await publisher.deleteRoom();            
         res.status(202).json({
             message : 'Deleted successfully'
