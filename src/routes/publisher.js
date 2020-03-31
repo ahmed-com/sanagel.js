@@ -96,6 +96,11 @@ router.put('/record/',is_auth,[
     .isInt({gt:0}),
     check('data')
     .isJSON()
+    .custom(data=>{
+        if(data.sharable){
+            if(typeof data.sharable !== "boolean") throw422("Invalid Formatting");
+        }
+    })
     .withMessage('Please Send Valid JSON String')
 ],validate,publisher.updateRecord);
 
@@ -111,6 +116,11 @@ router.post('/record/',is_auth,[
     .isInt({gt:0}),
     check('data')
     .isJSON()
+    .custom(data=>{
+        if(data.sharable){
+            if(typeof data.sharable !== "boolean") throw422("Invalid Formatting");
+        }
+    })
     .withMessage('Please Send Valid JSON String')
 ],validate,publisher.createRecord);
 
@@ -120,6 +130,55 @@ router.put('/recordStatus/',is_auth,[
     check('recordId')
     .isInt({gt:0})
 ],validate,publisher.seenCheck);
+
+router.get('/rooms/',is_auth,[
+    check('room')
+    .isInt({gt:0})
+],validate,publisher.getNestedRooms);
+
+router.post('/nestedRoom/',is_auth,[
+    check('room')
+    .isInt({gt:0}),
+    check('data')
+    .isJSON()
+    .custom(data=>{
+        if(data.defaultAccessLevel){
+            const inculded = Object.values(accessLevels).includes(data.defaultAccessLevel);
+            if(!inculded) throw422('Invalid AccessLevel');
+        }
+        if(data.channel){
+            if(typeof data.channel !== "boolean"){
+                if(!data.channel.private || typeof data.channel.private !== "boolean") throw422('Invalid Formatting');
+            }
+        }
+    })
+    .withMessage('Please Send Valid JSON String')
+],validate,publisher.createNestedRoom);
+
+router.delete('/reference/',is_auth,[
+    check('room')
+    .isInt({gt:0}),
+    check('recordId')
+    .isInt({gt:0})
+],validate,publisher.removeRecord);
+
+router.post('/reference/',is_auth,[
+    check('room')
+    .isInt({gt:0}),
+    check('destination')
+    .isInt({gt:0}),
+    check('recordId')
+    .isInt({gt:0})
+],validate,publisher.copyRecord);
+
+router.put('/reference/',is_auth,[
+    check('room')
+    .isInt({gt:0}),
+    check('destination')
+    .isInt({gt:0}),
+    check('recordId')
+    .isInt({gt:0})
+],validate,publisher.cutRecord);
 
 router.use('/user/',userRouter);
 
