@@ -256,6 +256,7 @@ exports.get = nameSpace =>{
             const query = `SELECT ${nameSpaceERCs}.id, ${nameSpaceERCs}.data, ${nameSpaceERCs}.createdAt, ${nameSpaceERCs}.updatedAt, ${nameSpaceERCs}.author, ${nameSpaceRESCs}.room AS room FROM ${nameSpaceERCs} INNER JOIN ${nameSpaceRESCs} ON ${nameSpaceERCs}.id = ${nameSpaceRESCs}.record WHERE ${nameSpaceRESCs}.room = :room AND ${nameSpaceERCs}.id = :recordId LIMIT 1 ;`
             return pool.roomRead(nameSpace,room,query,{
                 room,
+
                 recordId
             }).then(result=>result[0]);
         }
