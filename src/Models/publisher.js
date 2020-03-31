@@ -2,6 +2,7 @@ const pool = require(`../utils/db`);
 const io = require(`../utils/socket`).getIO();
 const client = require(`../utils/redis`).getClient();
 const moment = require(`moment`);
+const IOs = {};// this is only temporary
 
 exports.get = nameSpace =>{
 
@@ -12,7 +13,7 @@ exports.get = nameSpace =>{
     const nameSpaceUsers = `T${nameSpace}Users`;
     const nameSpaceRESCs = `T${nameSpace}RESCs`;
 
-    const IO = io.of(`/${nameSpace}`);
+    const IO = IOs[nameSpace];
 
     class Publisher{
         constructor(id){
@@ -414,7 +415,10 @@ exports.create = nameSpace => {
     .then(()=> pool.myExecute(`CREATE TABLE IF NOT EXISTS ${nameSpaceERCs} (id INTEGER NOT NULL auto_increment UNIQUE , data JSON NOT NULL, author INTEGER NOT NULL, createdAt DATETIME NOT NULL, updatedAt DATETIME NOT NULL, PRIMARY KEY (id), FOREIGN KEY (author) REFERENCES ${nameSpaceUsers}(id) ON DELETE CASCADE ON UPDATE CASCADE) ENGINE=InnoDB;`))
     .then(()=> pool.myExecute(`CREATE TABLE IF NOT EXISTS ${nameSpaceESCs} (relation TINYINT, record INTEGER NOT NULL, user INTEGER NOT NULL, createdAt DATETIME NOT NULL, updatedAt DATETIME NOT NULL, PRIMARY KEY (record,user), FOREIGN KEY (record) REFERENCES ${nameSpaceERCs} (id) ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY (user) REFERENCES ${nameSpaceUsers} (id) ON DELETE CASCADE ON UPDATE CASCADE) ENGINE=InnoDB;`))
     .then(()=> pool.myExecute(`CREATE TABLE IF NOT EXISTS ${nameSpaceRESCs} (room INTEGER NOT NULL, user INTEGER NOT NULL, record INTEGER NOT NULL, insertedAt DATETIME NOT NULL, FOREIGN KEY (user) REFERENCES ${nameSpaceUsers}(id) ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY (room) REFERENCES ${nameSpaceRRCs}(id) ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY (record) REFERENCES ${nameSpaceERCs} (id) ON DELETE CASCADE ON UPDATE CASCADE, UNIQUE(room,record,user)) ENGINE=InnoDB;`))
-    .then(()=> garbageCollector.init(nameSpace));
+    .then(()=> garbageCollector.init(nameSpace))
+    .then(()=>{
+        IOs[nameSpace] = io.of(`/${nameSpace}`);
+    })
 }
 
 exports.drop = nameSpace=>{
