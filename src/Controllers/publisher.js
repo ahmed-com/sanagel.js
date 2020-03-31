@@ -211,9 +211,9 @@ exports.createRecord =async (req,res,next)=>{
         const userId = req.body.userId;  
         const data = req.body.data;
         const publisher = new Publisher(room);
-        const result = publisher.getData();
+        const result = await publisher.getData();
         if(!result) throw404('Room Not Found!');
-        const accessLevel = publisher.getAccessLevel(userId);
+        const accessLevel = await publisher.getAccessLevel(userId);
         if(!accessLevel){
             if(result.data.channel && result.data.channel.private) throw404('Room Not Found!');
             throw403('Unauthorized Action');
@@ -461,6 +461,148 @@ exports.seenCheck =async (req,res,next)=>{//this'll be called as a confirmation 
         rooms.forEach(room=>{
             room.emit(events.seen,JSON.stringify({user,record}));
             room.clearCache();
+        });
+        return;
+    }catch(err){
+        next(err);
+        return;
+    }
+}
+
+exports.copyRecord = async (req,res,next)=>{
+    try{
+        const Publisher = req.Publisher;
+        const recordId = req.body.recordId;
+        const room = req.body.room;
+        const userId = req.body.userId;
+        const destination = req.body.destination;
+        const publisher = new Publisher(room);
+        const result = await publisher.getData();
+        if(!result) throw404('Room Not Found!');
+        if(result.data.channel){
+            const isSubscriber = await publisher.isSubscriber(userId);
+            if(!isSubscriber){
+                if(result.data.channel.private) throw404('Room Not Found!');
+                throw403('Unauthorized Action');
+            }
+        }
+        const record =await publisher.getRecord(recordId);
+        if(!record) throw404('Record Not Found!');
+        if(!record.data.sharable) throw403('Unauthorized Action');
+        const destinationPublisher = new Publisher(destination);
+        const duplicateRecord = await destinationPublisher.isHost(recordId,userId);
+        if(duplicateRecord) throw400('Dublicate Record');
+        const accessLevel = await destinationPublisher.getAccessLevel(userId);
+        if(!accessLevel){
+            const result = await destinationPublisher.getData();
+            if(!result) throw404('Room Not Found');
+            if(result.data.channel && result.data.channel.private) throw404('Room Not Found!');
+            throw403('Unauthorized Action');
+        }
+        if(!canWrite(accessLevel)) throw403('Unauthorized Action');
+        await destinationPublisher.addReference(recordId,userId);
+        res.status(201).json({
+            message : "copied successfully"
+        });
+        const user = await Publisher.getUserPublic(userId);
+        destinationPublisher.emit(events.recordCopied,JSON.stringify({user,record}));
+        const relation = await destinationPublisher.getRecordStatus(recordId,userId);
+        if(relation !== relations.owner){
+            Publisher.upsertRecordStatus(userId,recordId,relations.owner);
+        }
+        const rooms = await Publisher.getRoomsByRecord(recordId);
+        rooms.forEach(room=>{
+            if(room.id !== destination){
+                room.emit(events.incrementCopies,recordId);
+                room.clearCache();
+            }
+        });
+        return;
+    }catch(err){
+        next(err);
+        return;
+    }
+}
+
+exports.cutRecord = async (req,res,next)=>{
+    try{
+        const Publisher = req.Publisher;
+        const recordId = req.body.recordId;
+        const room = req.body.room;
+        const userId = req.body.userId;
+        const destination = req.body.destination;
+        const publisher = new Publisher(room);
+        const result = await publisher.getData();
+        if(!result) throw404('Room Not Found!');
+        if(result.data.channel){
+            const isSubscriber = await publisher.isSubscriber(userId);
+            if(!isSubscriber){
+                if(result.data.channel.private) throw404('Room Not Found!');
+                throw403('Unauthorized Action');
+            }
+        }
+        const record =await publisher.getRecord(recordId);
+        if(!record) throw404("Record Not Found!");
+        const isHost = await publisher.isHost(recordId,userId);
+        if(!isHost) throw403('Unauthorized Action!');
+        if(!record.data.sharable) throw403('Unauthorized Action');
+        const destinationPublisher = new Publisher(destination);
+        const duplicateRecord = await destinationPublisher.isHost(recordId,userId);
+        if(duplicateRecord) throw400('Dublicate Record');
+        const accessLevel = await destinationPublisher.getAccessLevel(userId);
+        if(!accessLevel){
+            const result = await destinationPublisher.getData();
+            if(!result) throw404('Room Not Found');
+            if(result.data.channel && result.data.channel.private) throw404('Room Not Found!');
+            throw403('Unauthorized Action');
+        }
+        if(!canWrite(accessLevel)) throw403('Unauthorized Action');
+        await publisher.changeReference(recordId,userId,destination);
+        res.status(201).json({
+            message : "cutted successfully"
+        });
+        const user = await Publisher.getUserPublic(userId);
+        destinationPublisher.emit(events.recordAdded,JSON.stringify({user,record}));
+        destinationPublisher.clearCache();
+        publisher.emit(events.recordRemoved,recordId);
+        return;
+    }catch(err){
+        next(err);
+        return;
+    }
+}
+
+exports.removeRecord = async (req,res,next)=>{
+    try{
+        const Publisher = req.Publisher
+        const room = req.body.room;
+        const recordId = req.body.recordId;
+        const userId = req.body.userId;
+        const publisher = new Publisher(room);
+        const result = await publisher.getData();
+        if(!result) throw404('Room Not Found!');
+        if(result.data.channel){
+            const isSubscriber = await publisher.isSubscriber(userId);
+            if(!isSubscriber){
+                if(result.data.channel.private) throw404('Room Not Found!');
+                throw403('Unauthorized Action');
+            }
+        }
+        const record = await publisher.getRecord(recordId);
+        if(!record) throw404('Record Not Found');
+        const isHost = await publisher.isHost(recordId,userId);
+        if(!isHost) throw403('Unauthorized Action');
+        await publisher.removeReference(recordId,userId);            
+        res.status(202).json({
+            message : 'Removed successfully'
+        });
+        publisher.emit(events.recordRemoved,recordId);
+        const rooms = await Publisher.getRoomsByRecord(recordId);
+        rooms.forEach(room=>{
+            if(room.id !== publisher.id){
+                room.emit(events.decrementCopies,recordId);
+                room.clearCache();
+            }
         });
         return;
     }catch(err){

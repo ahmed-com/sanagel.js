@@ -206,7 +206,15 @@ exports.get = nameSpace =>{
             })
         }
 
-        
+        isHost(recordId,userId){
+            const room = this.id;
+            const query = `SSELECT EXISTS( SELECT record FROM ${nameSpaceRESCs} WHERE room = :room AND record = :recordId AND user = :userId LIMIT 1 );`;
+            return pool.roomRead(nameSpace,room,query,{
+                room,
+                recordId,
+                userId
+            }).then(result => Object.values(result[0])[0]);
+        }
 
         createRecordWithReference(data,userId){
             let recordId;
@@ -221,6 +229,7 @@ exports.get = nameSpace =>{
         }
 
         removeReference(recordId,userId){
+            Publisher.clearCache(userId);
             const room = this.id;
             const query = `DELETE FROM ${nameSpaceRESCs} where room = :room AND user = :userId AND record = :recordId ;`;
             return pool.roomWrite(nameSpace,room,query,{
@@ -231,6 +240,7 @@ exports.get = nameSpace =>{
         }
 
         changeReference(recordId,userId,roomId){
+            Publisher.clearCache(userId);
             const room = this.id;
             const query = `UPDATE ${nameSpaceRESCs} SET room = :roomId, insertedAt= :now WHERE record = :recordId AND user = :userId AND room = :room`;
             return pool.roomWrite(nameSpace,room,query,{
