@@ -67,10 +67,13 @@ describe('is_auth',()=>{
 
     it('should give the request a property of a userId if the token is succefully verified',function(){
         const req  = {
-            get:headerName => 'Bearer xyz.xyz.xyz'
+            get:headerName => 'Bearer xyz.xyz.xyz',
+            Publisher :{
+                getName : jest.fn().mockReturnValue('nameSpace')
+            }
         };
         const next = jest.fn();
-        const mockedJWTVerify = jest.spyOn(jwt,"verify").mockReturnValue({userId : 1});
+        const mockedJWTVerify = jest.spyOn(jwt,"verify").mockReturnValue({userId : 1, nameSpace : 'nameSpace'});
         is_auth(req,{},next);
         expect(mockedJWTVerify).toHaveBeenCalled();
         expect(next).toHaveBeenCalled();
