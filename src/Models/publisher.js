@@ -327,6 +327,15 @@ exports.get = nameSpace =>{
                 userId,
                 data : JSON.stringify(data),
                 now : moment(Date.now()).format(`YYYY-MM-DD HH:mm:ss`)
+            })
+            .then(({insertId})=>insertId);
+        }
+
+        getNestedRooms(){
+            const room = this.id;
+            const query = `SELECT * FROM ${nameSpaceRRCs} WHERE parent = :room ;`;
+            return pool.roomRead(nameSpace,room,query,{
+                room
             });
         }
 

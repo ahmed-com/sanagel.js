@@ -28,6 +28,45 @@ exports.createRoom = async (req,res,next)=>{
     }
 }
 
+exports.createNestedRoom = async (req,res,next)=>{
+    try{
+        const Publisher = req.Publisher
+        const room = req.body.room;
+        const userId = req.body.userId;  
+        const data = req.body.data;
+        const publisher = new Publisher(room);
+        const result = await publisher.getData();
+        if(!result) throw404('Room Not Found!');
+        const accessLevel = await publisher.getAccessLevel(userId);
+        if(!accessLevel){
+            if(result.data.channel && result.data.channel.private) throw404('Room Not Found!');
+            throw403('Unauthorized Action');
+        }
+        if(!canWrite(accessLevel)) throw403('Unauthorized Action');
+        const insertId = await Publisher.createNestedRoom(userId,data);
+        const nestedRoom = {
+            id :insertId,
+            parent : room,
+            admin : userId,
+            data
+        }
+        res.status(201).json({
+            message : "Room Created Successfully",
+            nestedRoom
+        });
+        const nestedPublisher = new Publisher(insertId);
+        await nestedPublisher.subscribe(userId,accessLevels.read_write_invite_remove_notify);
+        const socketId = await Publisher.getSocketId(userId);
+        if(socketId) nestedPublisher.join(socketId);
+        const user = await Publisher.getUserPublic(userId);
+        publisher.emit(events.roomCreated,JSON.stringify({user , nestedRoom}));
+        return;
+    }catch(err){
+        next(err);
+        return;
+    }
+}
+
 exports.subscribe =async (req,res,next)=>{
     try{
         const Publisher = req.Publisher
@@ -196,6 +235,33 @@ exports.getSubscribers =async (req,res,next)=>{
         res.status(200).json({
             message : "Subscribers Requested",
             subscribers
+        });
+        return;
+    }catch(err){
+        next(err);
+        return;
+    }
+}
+
+exports.getNestedRooms = async (req,res,next)=>{
+    try{
+        const Publisher = req.Publisher
+        const room = req.body.room;
+        const userId = req.body.userId;
+        const publisher = new Publisher(room);
+        const result = await publisher.getData();
+        if(!result) throw404('Room Not Found!');
+        if(result.data.channel){
+            const isSubscriber = publisher.isSubscriber(userId);
+            if(!isSubscriber){
+                if(result.data.channel.private) throw404('Room Not Found!');
+                throw403('Unauthorized Action');
+            }
+        }
+        const rooms = await publisher.getNestedRooms();
+        res.status(200).json({
+            message : 'Records requested',
+            records
         });
         return;
     }catch(err){
