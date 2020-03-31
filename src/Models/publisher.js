@@ -71,7 +71,7 @@ exports.get = nameSpace =>{
 
         static getUserByMail(mail){
             const query = `SELECT id, hashedPW, data, userName, mail, createdAt, updatedAt FROM ${nameSpaceUsers} WHERE mail = :mail LIMIT 1;`;
-            return pool.userRead(query,{
+            return pool.myExecute(query,{
                 mail
             }).then(result=>result[0]);
         }
@@ -383,7 +383,7 @@ exports.get = nameSpace =>{
 
         static createUser(userName,mail,hashedPW,data){
             const query = `INSERT INTO ${nameSpaceUsers}(id, mail, hashedPW , userName, createdAt, updatedAt,data) VALUES (DEFAULT, :mail, :hashedPW ,:userName, :now,:now,:data); `;
-            return pool.userWrite(nameSpace,useId,query,{
+            return pool.myExecute(query,{
                 userName,
                 mail,
                 hashedPW,

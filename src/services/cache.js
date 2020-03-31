@@ -31,7 +31,9 @@ const roomRead = async (nameSpace,room,query,data)=>{
 const roomWrite = async (nameSpace,room,query,data)=>{
     setImmediate(()=>{
         const key = JSON.stringify({nameSpace,room});
-        del(key);
+        client.exists(key,bool=>{
+            if (bool) del(key);
+        })
     });
     return pool.myExecute(query,data)
 }

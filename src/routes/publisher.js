@@ -10,6 +10,11 @@ const {throw422} = require('../scripts/errors');
 router.post('/room/',is_auth,[
     check('data')
     .isJSON()
+    .withMessage('Please Send Valid JSON String')
+    .custom(( data , { req } )=>{
+        req.body.data = JSON.parse(data);
+        return Promise.resolve();
+    })
     .custom(data=>{
         if(data.defaultAccessLevel){
             const inculded = Object.values(accessLevels).includes(data.defaultAccessLevel);
@@ -20,8 +25,8 @@ router.post('/room/',is_auth,[
                 if(!data.channel.private || typeof data.channel.private !== "boolean") throw422('Invalid Formatting');
             }
         }
+        return Promise.resolve();
     })
-    .withMessage('Please Send Valid JSON String')
 ],validate,publisher.createRoom);
 
 router.post('/join/',is_auth,[
@@ -41,6 +46,7 @@ router.post('/invite/',is_auth,[
     .custom(inviteAccessLevel=>{
         const inculded = Object.values(accessLevels).includes(inviteAccessLevel);
         if(!inculded) throw422('Invalid AccessLevel');
+        return Promise.resolve();
     })
 ],validate,publisher.invite);
 
@@ -96,12 +102,17 @@ router.put('/record/',is_auth,[
     .isInt({gt:0}),
     check('data')
     .isJSON()
+    .withMessage('Please Send Valid JSON String')
+    .custom(( data , { req } )=>{
+        req.body.data = JSON.parse(data);
+        return Promise.resolve(data);
+    })
     .custom(data=>{
         if(data.sharable){
             if(typeof data.sharable !== "boolean") throw422("Invalid Formatting");
         }
+        return Promise.resolve();
     })
-    .withMessage('Please Send Valid JSON String')
 ],validate,publisher.updateRecord);
 
 router.delete('/record/',is_auth,[
@@ -116,12 +127,17 @@ router.post('/record/',is_auth,[
     .isInt({gt:0}),
     check('data')
     .isJSON()
+    .withMessage('Please Send Valid JSON String')
+    .custom(( data , { req } )=>{
+        req.body.data = JSON.parse(data);
+        return Promise.resolve(data);
+    })
     .custom(data=>{
         if(data.sharable){
             if(typeof data.sharable !== "boolean") throw422("Invalid Formatting");
         }
+        return Promise.resolve();
     })
-    .withMessage('Please Send Valid JSON String')
 ],validate,publisher.createRecord);
 
 router.put('/recordStatus/',is_auth,[
@@ -141,6 +157,11 @@ router.post('/nestedRoom/',is_auth,[
     .isInt({gt:0}),
     check('data')
     .isJSON()
+    .withMessage('Please Send Valid JSON String')
+    .custom(( data , { req } )=>{
+        req.body.data = JSON.parse(data);
+        return Promise.resolve(data);
+    })
     .custom(data=>{
         if(data.defaultAccessLevel){
             const inculded = Object.values(accessLevels).includes(data.defaultAccessLevel);
@@ -151,8 +172,8 @@ router.post('/nestedRoom/',is_auth,[
                 if(!data.channel.private || typeof data.channel.private !== "boolean") throw422('Invalid Formatting');
             }
         }
+        return Promise.resolve();
     })
-    .withMessage('Please Send Valid JSON String')
 ],validate,publisher.createNestedRoom);
 
 router.delete('/reference/',is_auth,[

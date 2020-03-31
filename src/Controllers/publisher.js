@@ -5,7 +5,7 @@ const {canWrite, canInvite , canRemove, addNotify, hasNotify , stripNotify} = re
 exports.createRoom = async (req,res,next)=>{
     try{
         const Publisher = req.Publisher;
-        const userId = req.body.userId;
+        const userId = req.userId;
         const data = req.body.data;
         const insertId = await Publisher.createRoom(userId,data);
         res.status(201).json({
@@ -32,7 +32,7 @@ exports.createNestedRoom = async (req,res,next)=>{
     try{
         const Publisher = req.Publisher
         const room = req.body.room;
-        const userId = req.body.userId;  
+        const userId = req.userId;  
         const data = req.body.data;
         const publisher = new Publisher(room);
         const result = await publisher.getData();
@@ -71,7 +71,7 @@ exports.subscribe =async (req,res,next)=>{
     try{
         const Publisher = req.Publisher
         const room = req.body.room;
-        const userId = req.body.userId;
+        const userId = req.userId;
         const publisher = new Publisher(room);
         const result = await publisher.getData();
         if(!result) throw404('Room Not Found');
@@ -95,7 +95,7 @@ exports.subscribe =async (req,res,next)=>{
 exports.join =async (req,res,next)=>{
     try{
         const Publisher = req.Publisher
-        const userId = req.body.userId;
+        const userId = req.userId;
         const socketId = req.body.socketId;
         Publisher.setSocketId(socketId,userId);
         const rooms =await Publisher.getRoomsByUser(userId);
@@ -118,7 +118,7 @@ exports.join =async (req,res,next)=>{
 exports.leave =async (req,res,next)=>{
     try{
         const Publisher = req.Publisher
-        const userId = req.body.userId;
+        const userId = req.userId;
         const socketId =await Publisher.getSocketId(userId);
         if(!socketId) throw400('something went wrong');
         Publisher.removeSocketId(userId);
@@ -142,7 +142,7 @@ exports.unsubscribe =async (req,res,next)=>{
     try{
         const Publisher = req.Publisher
         const room = req.body.room;
-        const userId = req.body.userId;
+        const userId = req.userId;
         const publisher = new Publisher(room);
         const roomExists = await publisher.exists();
         if(!roomExists) throw404('Room Not Found!');
@@ -164,7 +164,7 @@ exports.unsubscribe =async (req,res,next)=>{
 exports.remove =async (req,res,next)=>{
     try{
         const Publisher = req.Publisher;
-        const userId = req.body.userId;
+        const userId = req.userId;
         const room = req.body.room;
         const removedId = req.body.removedId;
         const publisher = new Publisher(room);
@@ -192,7 +192,7 @@ exports.invite = async (req,res,next) =>{
     try{
         const Publisher = req.Publisher;
         const room = req.body.room;
-        const userId = req.body.userId;
+        const userId = req.userId;
         const invitedId = req.body.invitedId;
         const inviteAccessLevel = req.body.inviteAccessLevel;
         const publisher = new Publisher(room);
@@ -221,6 +221,7 @@ exports.getSubscribers =async (req,res,next)=>{
     try{
         const Publisher = req.Publisher;
         const room = req.body.room;
+        const userId = req.userId;
         const publisher = new Publisher(room);
         const result = await publisher.getData();
         if(!result) throw404('Room Not Found!');
@@ -247,7 +248,7 @@ exports.getNestedRooms = async (req,res,next)=>{
     try{
         const Publisher = req.Publisher
         const room = req.body.room;
-        const userId = req.body.userId;
+        const userId = req.userId;
         const publisher = new Publisher(room);
         const result = await publisher.getData();
         if(!result) throw404('Room Not Found!');
@@ -274,7 +275,7 @@ exports.createRecord =async (req,res,next)=>{
     try{
         const Publisher = req.Publisher
         const room = req.body.room;
-        const userId = req.body.userId;  
+        const userId = req.userId;  
         const data = req.body.data;
         const publisher = new Publisher(room);
         const result = await publisher.getData();
@@ -322,7 +323,7 @@ exports.getRecord =async (req,res,next)=>{
         const Publisher = req.Publisher
         const room = req.body.room;
         const recordId = req.body.recordId;
-        const userId = req.body.userId;
+        const userId = req.userId;
         const publisher = new Publisher(room);
         const result = await publisher.getData();
         if(!result) throw404('Room Not Found!');
@@ -363,7 +364,7 @@ exports.updateRecord =async (req,res,next)=>{
         const room = req.body.room;
         const data = req.body.data;
         const recordId = req.body.recordId;
-        const userId = req.body.userId;
+        const userId = req.userId;
         const publisher = new Publisher(room);
         const roomExists = await publisher.exists();
         if(!roomExists) throw404('Room Not Found!');
@@ -392,7 +393,7 @@ exports.deleteRecord =async (req,res,next)=>{
         const Publisher = req.Publisher
         const room = req.body.room;
         const recordId = req.body.recordId;
-        const userId = req.body.userId;
+        const userId = req.userId;
         const publisher = new Publisher(room);
         const roomExists = await publisher.exists();
         if(!roomExists) throw404('Room Not Found!');
@@ -420,7 +421,7 @@ exports.getAllRecords =async (req,res,next)=>{
     try{
         const Publisher = req.Publisher
         const room = req.body.room;
-        const userId = req.body.userId;
+        const userId = req.userId;
         const publisher = new Publisher(room);
         const result = await publisher.getData();
         if(!result) throw404('Room Not Found!');
@@ -460,7 +461,7 @@ exports.getAllRecords =async (req,res,next)=>{
 exports.getUnseenRecords =async (req,res,next)=>{ // this function is for notification display
     try{
         const Publisher = req.Publisher;
-        const userId = req.body.userId;
+        const userId = req.userId;
         const records = await Publisher.getRecordsByUserRelation(userId,relations.unseen);
         res.status(200).json({
             message : 'Records requested',
@@ -485,7 +486,7 @@ exports.getUnseenRecords =async (req,res,next)=>{ // this function is for notifi
 exports.getUserRecords = async (req,res,next)=>{
     try{
         const Publisher = req.Publisher;
-        const userId = req.body.userId;
+        const userId = req.userId;
         const records = await Publisher.getRecordsByUserRelation(userId,relations.owner);
         res.status(200).json({
             message : 'Records requested',
@@ -502,7 +503,7 @@ exports.seenCheck =async (req,res,next)=>{//this'll be called as a confirmation 
     try{
         const Publisher = req.Publisher;
         const room = req.body.room;
-        const userId = req.body.userId;
+        const userId = req.userId;
         const recordId = req.body.recordId;
         const publisher = new Publisher(room);
         const result = await publisher.getData();
@@ -540,7 +541,7 @@ exports.copyRecord = async (req,res,next)=>{
         const Publisher = req.Publisher;
         const recordId = req.body.recordId;
         const room = req.body.room;
-        const userId = req.body.userId;
+        const userId = req.userId;
         const destination = req.body.destination;
         const publisher = new Publisher(room);
         const result = await publisher.getData();
@@ -595,7 +596,7 @@ exports.cutRecord = async (req,res,next)=>{
         const Publisher = req.Publisher;
         const recordId = req.body.recordId;
         const room = req.body.room;
-        const userId = req.body.userId;
+        const userId = req.userId;
         const destination = req.body.destination;
         const publisher = new Publisher(room);
         const result = await publisher.getData();
@@ -643,7 +644,7 @@ exports.removeRecord = async (req,res,next)=>{
         const Publisher = req.Publisher
         const room = req.body.room;
         const recordId = req.body.recordId;
-        const userId = req.body.userId;
+        const userId = req.userId;
         const publisher = new Publisher(room);
         const result = await publisher.getData();
         if(!result) throw404('Room Not Found!');
@@ -681,7 +682,7 @@ exports.deleteRoom =async (req,res,next)=>{// I'm Not Sure About This At All
     try{
         const Publisher = req.Publisher;
         const room = req.body.room;
-        const userId = req.body.userId;
+        const userId = req.userId;
         const publisher = new Publisher(room);
         const result = await publisher.getData();
         if(!result) throw404('Room Not Found!');

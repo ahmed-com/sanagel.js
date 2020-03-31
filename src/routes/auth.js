@@ -20,6 +20,10 @@ router.post('/signup',[
         check('data')
         .isJSON()
         .withMessage('Please Send Valid JSON String')
+        .custom(( data , { req } )=>{
+            req.body.data = JSON.parse(data);
+            return Promise.resolve();
+        })
 ],validate,auth.signUp);
 
 router.post('/signin',[
