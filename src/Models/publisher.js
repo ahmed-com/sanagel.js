@@ -108,7 +108,9 @@ exports.get = nameSpace =>{
             const room = this.id;
             setImmediate(()=>{
                 const key = JSON.stringify({nameSpace,room});
-                client.del(key);
+                client.exists(key,bool=>{
+                    if (bool) del(key);
+                })
             });
         }
 
