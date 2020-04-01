@@ -3,9 +3,7 @@ const app = express();
 const server = require('http').Server(app);
 const io = require('./utils/socket').init(server);
 const bodyParser = require('body-parser');
-const redis = require('./utils/redis');
 
-redis.init();
 require('./services/cache');
 
 const path = require('path');

@@ -19,16 +19,16 @@
         "incrementCopies" : "incrementCopies"
     },
     "accessLevels" : {
-        "read_write_invite_remove_notify" : 0,
-        "read_write_invite_remove" : 1,
-        "read_write_invite_notify" : 2,
-        "read_write_invite" : 3,
-        "read_write_notify" : 4,
-        "read_write" : 5,
-        "read_invite_notify" : 6,
-        "read_invite" : 7,
-        "read_notify" : 8,
-        "read_only" : 9
+        "read_write_invite_remove_notify" : 1,
+        "read_write_invite_remove" : 2,
+        "read_write_invite_notify" : 3,
+        "read_write_invite" : 4,
+        "read_write_notify" : 5,
+        "read_write" : 6,
+        "read_invite_notify" : 7,
+        "read_invite" : 8,
+        "read_notify" : 9,
+        "read_only" : 10
     },
     "relations":{
         "owner" : 0,

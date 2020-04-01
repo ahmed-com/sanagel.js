@@ -9,14 +9,14 @@ const hget = (key,field)=>{
     })
 }
 
-const hset = client.hset;
+const hset = client.hset.bind(client);
 
 const del = client.del;
 
 const roomRead = async (nameSpace,room,query,data)=>{
     const key = JSON.stringify({nameSpace,room});
     const field = JSON.stringify({query,data});
-    const cachedResult = await hget(key,field);
+    let cachedResult = await hget(key,field);
     if(cachedResult){
         return JSON.parse(cachedResult);
     }
@@ -41,7 +41,7 @@ const roomWrite = async (nameSpace,room,query,data)=>{
 const userRead = async (nameSpace,user,query,data)=>{
     const key = JSON.stringify({nameSpace,user});
     const field = JSON.stringify({query,data});
-    const cachedResult = await hget(key,field);
+    let cachedResult = await hget(key,field);
     if(cachedResult){
         return JSON.parse(cachedResult);
     }

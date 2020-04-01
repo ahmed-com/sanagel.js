@@ -1,2 +1,5 @@
 require('dotenv').config();
-require('./src/app');
+const redis = require('./src/utils/redis');
+redis.init({},()=>{
+    require('./src/app');
+});

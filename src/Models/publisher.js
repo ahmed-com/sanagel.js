@@ -157,7 +157,10 @@ exports.get = nameSpace =>{
             return pool.roomRead(nameSpace,room,query,{
                 room,
                 userId
-            }).then(result=>result[0].accessLevel);
+            })
+            .then(result=>{
+                return result[0] ? result[0].accessLevel : false;
+            })
         }
 
         isSubscriber(userId){
