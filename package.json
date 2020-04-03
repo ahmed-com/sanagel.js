@@ -18,6 +18,7 @@
     "express-validator": "^6.4.0",
     "jsonwebtoken": "^8.5.1",
     "moment": "^2.24.0",
+    "multer": "^1.4.2",
     "mysql2": "^2.1.0",
     "named-placeholders": "^1.1.2",
     "redis": "^3.0.2",
