@@ -59,7 +59,7 @@ exports.createNestedRoom = async (req,res,next)=>{
         const socketId = await Publisher.getSocketId(userId);
         if(socketId) nestedPublisher.join(socketId);
         const user = await Publisher.getUserPublic(userId);
-        publisher.emit(events.roomCreated,JSON.stringify({user , nestedRoom}));
+        publisher.emit(events.roomCreated,JSON.stringify({user , nestedRoom, room}));
         return;
     }catch(err){
         next(err);
@@ -84,7 +84,7 @@ exports.subscribe =async (req,res,next)=>{
         const socketId = await Publisher.getSocketId(userId);
         if(socketId) publisher.join(socketId);                
         const user = await Publisher.getUserPublic(userId);    
-        publisher.emit(events.subscribtion,JSON.stringify(user));
+        publisher.emit(events.subscribtion,JSON.stringify({user,room : room.id}));
         return;
     }catch(err){
         next(err);
@@ -106,7 +106,7 @@ exports.join =async (req,res,next)=>{
         const user = await Publisher.getUserPublic(userId);
         rooms.forEach(room => {
             room.join(socketId);
-            room.emit(events.online,JSON.stringify(user));
+            room.emit(events.online,JSON.stringify({user,room : room.id}));
         });
         return;
     }catch(err){
@@ -129,7 +129,7 @@ exports.leave =async (req,res,next)=>{
         const user = await Publisher.getUserPublic(userId);
         rooms.forEach(room => {
             room.leave(socketId);
-            room.emit(events.offline,JSON.stringify(user));
+            room.emit(events.offline,JSON.stringify({user,room : room.id}));
         });
         return;
     }catch(err){
@@ -153,7 +153,7 @@ exports.unsubscribe =async (req,res,next)=>{
         const socketId = await Publisher.getSocketId(userId);
         if(socketId) publisher.leave(socketId);
         const user = await Publisher.getUserPublic(userId);
-        publisher.emit(events.unsubscribtion,JSON.stringify(user));
+        publisher.emit(events.unsubscribtion,JSON.stringify({user,room}));
         return;
     }catch(err){
         next(err);
@@ -178,7 +178,7 @@ exports.remove =async (req,res,next)=>{
             message : 'Removed successfuly'
         });
         const remover = await publisher.getUserPublic(userId);
-        publisher.emit(events.removed,JSON.stringify({user,remover}));
+        publisher.emit(events.removed,JSON.stringify({user,remover,room}));
         const socketId = await Publisher.getSocketId(removedId);
         if(socketId) publisher.leave(socketId);
         return;
@@ -207,7 +207,7 @@ exports.invite = async (req,res,next) =>{
             message : 'Invited Successfuly'
         });
         const inviter = await publisher.getUserPublic(userId);
-        publisher.emit(events.invited,JSON.stringify({user,inviter}));
+        publisher.emit(events.invited,JSON.stringify({user,inviter,room}));
         const socketId = await Publisher.getSocketId(invitedId);
         if(socketId) publisher.join(socketId);
         return;
@@ -296,7 +296,7 @@ exports.createRecord =async (req,res,next)=>{
             message : 'Record created successfully',
             record
         });
-        publisher.emit(events.recordCreated,JSON.stringify(record));
+        publisher.emit(events.recordCreated,JSON.stringify({record,room}));
         const subscribers = await publisher.getSubscribers();
         await (async function(){
             for(subscriber of subscribers){
@@ -304,7 +304,7 @@ exports.createRecord =async (req,res,next)=>{
                 if(socketId){
                     await Publisher.upsertRecordStatus(subscriber.id,record.id,relations.delivered);
                     const user = Publisher.getUserPublic(subscriber.id);
-                    publisher.emit(events.delivered , JSON.stringify({user , record}));
+                    publisher.emit(events.delivered , JSON.stringify({user , record, room}));
                 }else{
                     await Publisher.upsertRecordStatus(subscriber.id,record.id,relations.unseen);
                 }
@@ -348,7 +348,7 @@ exports.getRecord =async (req,res,next)=>{
         Publisher.upsertRecordStatus(userId,recordId,relations.seen);
         const rooms= await Publisher.getRoomsByRecord(recordId);
         rooms.forEach(room=>{
-            room.emit(events.seen,JSON.stringify({user , record}));
+            room.emit(events.seen,JSON.stringify({user , record, room : room.id}));
             room.clearCache();
         });
         return;
@@ -378,7 +378,7 @@ exports.updateRecord =async (req,res,next)=>{
         })
         const rooms = await Publisher.getRoomsByRecord(recordId);
         rooms.forEach(room=>{
-            room.emit(events.recordUpdated,JSON.stringify(record));
+            room.emit(events.recordUpdated,JSON.stringify({record,room : room.id}));
             room.clearCache();
         })
         return;
@@ -407,7 +407,7 @@ exports.deleteRecord =async (req,res,next)=>{
         })
         const rooms = await Publisher.getRoomsByRecord(recordId);
         rooms.forEach(room=>{
-            room.emit(events.recordDeleted,recordId);
+            room.emit(events.recordDeleted,JSON.stringify({recordId,room : room.id}));
             room.clearCache();
         });
         return;
@@ -445,7 +445,7 @@ exports.getAllRecords =async (req,res,next)=>{
                     Publisher.upsertRecordStatus(userId,record.id,relations.seen);
                     const rooms = await Publisher.getRoomsByRecord(record.id);
                     rooms.forEach(room=>{
-                        room.emit(events.seen,JSON.stringify({user , record}));
+                        room.emit(events.seen,JSON.stringify({user , record, room : room.id}));
                         room.clearCache();
                     })
                 }
@@ -472,7 +472,7 @@ exports.getUnseenRecords =async (req,res,next)=>{ // this function is for notifi
         records.forEach(async record=>{
             const rooms = await Publisher.getRoomsByRecord(record.id);
             rooms.forEach(room=>{
-                room.emit(events.delivered,JSON.stringify({user , record}));
+                room.emit(events.delivered,JSON.stringify({user , record, room : room.id}));
                 room.clearCache();
             })
         });
@@ -526,7 +526,7 @@ exports.seenCheck =async (req,res,next)=>{//this'll be called as a confirmation 
         const user =await Publisher.getUserPublic(userId);
         const rooms = await Publisher.getRoomsByRecord(recordId);
         rooms.forEach(room=>{
-            room.emit(events.seen,JSON.stringify({user,record}));
+            room.emit(events.seen,JSON.stringify({user,record,room : room.id}));
             room.clearCache();
         });
         return;
@@ -572,7 +572,7 @@ exports.copyRecord = async (req,res,next)=>{
             message : "copied successfully"
         });
         const user = await Publisher.getUserPublic(userId);
-        destinationPublisher.emit(events.recordCopied,JSON.stringify({user,record}));
+        destinationPublisher.emit(events.recordCopied,JSON.stringify({user,record,room : destinationPublisher.id}));
         const relation = await destinationPublisher.getRecordStatus(recordId,userId);
         if(relation !== relations.owner){
             Publisher.upsertRecordStatus(userId,recordId,relations.owner);
@@ -580,7 +580,7 @@ exports.copyRecord = async (req,res,next)=>{
         const rooms = await Publisher.getRoomsByRecord(recordId);
         rooms.forEach(room=>{
             if(room.id !== destination){
-                room.emit(events.incrementCopies,recordId);
+                room.emit(events.incrementCopies,JSON.stringify({recordId,room : room.id}));
                 room.clearCache();
             }
         });
@@ -629,9 +629,9 @@ exports.cutRecord = async (req,res,next)=>{
             message : "cutted successfully"
         });
         const user = await Publisher.getUserPublic(userId);
-        destinationPublisher.emit(events.recordAdded,JSON.stringify({user,record}));
+        destinationPublisher.emit(events.recordAdded,JSON.stringify({user,record,room : destinationPublisher.id}));
         destinationPublisher.clearCache();
-        publisher.emit(events.recordRemoved,recordId);
+        publisher.emit(events.recordRemoved,JSON.stringify({recordId,room}));
         return;
     }catch(err){
         next(err);
@@ -663,11 +663,11 @@ exports.removeRecord = async (req,res,next)=>{
         res.status(202).json({
             message : 'Removed successfully'
         });
-        publisher.emit(events.recordRemoved,recordId);
+        publisher.emit(events.recordRemoved,JSON.stringify({recordId,room}));
         const rooms = await Publisher.getRoomsByRecord(recordId);
         rooms.forEach(room=>{
             if(room.id !== publisher.id){
-                room.emit(events.decrementCopies,recordId);
+                room.emit(events.decrementCopies,JSON.stringify({recordId , room : room.id}));
                 room.clearCache();
             }
         });
@@ -699,7 +699,7 @@ exports.deleteRoom =async (req,res,next)=>{// I'm Not Sure About This At All
         });
         const subscribers = await publisher.getSubscribers();
         subscribers.forEach(async subscriber=>{
-            publisher.emit(events.roomDeleted,true);
+            publisher.emit(events.roomDeleted,JSON.stringify({room}));
             const socketId = await publisher.getSocketId(subscriber.id);
             if(socketId) publisher.leave(socketId);
         });
