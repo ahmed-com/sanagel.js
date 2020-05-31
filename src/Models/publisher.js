@@ -3,7 +3,10 @@ const io = require(`../utils/socket`).getIO();
 const client = require(`../utils/redis`).getClient();
 const moment = require(`moment`);
 const IOStore = require('../temp/nameSpaces.json');
+
 const fs = require('fs');
+const path = require('path');
+
 const IOs = {};
 
 (function initializeIOs(){
@@ -426,7 +429,8 @@ exports.create = nameSpace => {
     .then(()=> pool.myExecute(`CREATE TABLE IF NOT EXISTS ${nameSpaceRESCs} (room INTEGER NOT NULL, user INTEGER NOT NULL, record INTEGER NOT NULL, insertedAt DATETIME NOT NULL, FOREIGN KEY (user) REFERENCES ${nameSpaceUsers}(id) ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY (room) REFERENCES ${nameSpaceRRCs}(id) ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY (record) REFERENCES ${nameSpaceERCs} (id) ON DELETE CASCADE ON UPDATE CASCADE, UNIQUE(room,record,user)) ENGINE=InnoDB;`))
     .then(()=> garbageCollector.init(nameSpace))
     .then(()=>{
-        return store(nameSpace);
+        IOs[nameSpace] = io.of(`/${nameSpace}`);
+        store(nameSpace,console.log);
     })
 }
 
@@ -440,9 +444,8 @@ exports.drop = nameSpace=>{
     return pool.myExecute(`DROP TABLE ${nameSpaceUsers}, ${nameSpaceRSCs}, ${nameSpaceRRCs}, ${nameSpaceESCs}, ${nameSpaceERCs}, ${nameSpaceRESCs};`)
 }
 
-async function store(nameSpace,callback){
-    IOs[nameSpace] = io.of(`/${nameSpace}`);
+function store(nameSpace,callback){
     IOStore.push({"nameSpace" : nameSpace});
     const output = JSON.stringify(IOStore);
-    fs.writeFileSync('../temp/nameSpaces.json',output);
+    fs.writeFile(path.join(__dirname,'../temp/nameSpaces.json'),output,callback);
 }
