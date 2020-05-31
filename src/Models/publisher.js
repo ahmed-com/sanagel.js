@@ -125,7 +125,7 @@ exports.get = nameSpace =>{
         }
 
         static isValidSocketId(socketId){
-            return Object.keys(IO.connected).includes(socketId);
+            return Object.keys(IO.connected).includes(socketId);// this defenitly needs some improvement.
         }
 
         static getRoomsByUser(userId){// might be a bit misleading

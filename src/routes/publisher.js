@@ -44,7 +44,7 @@ router.post('/invite/',is_auth,[
     .isInt({gt:0}),
     check('inviteAccessLevel')
     .custom(inviteAccessLevel=>{
-        const inculded = Object.values(accessLevels).includes(inviteAccessLevel);
+        const inculded = Object.values(accessLevels).includes(inviteAccessLevel);// this might need some improvment cuz it takes too long.
         if(!inculded) throw422('Invalid AccessLevel');
         return Promise.resolve();
     })
