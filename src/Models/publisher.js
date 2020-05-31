@@ -2,7 +2,15 @@ const pool = require(`../utils/db`);
 const io = require(`../utils/socket`).getIO();
 const client = require(`../utils/redis`).getClient();
 const moment = require(`moment`);
-const IOs = {};// this is only temporary
+const IOStore = require('../temp/nameSpaces.json');
+const fs = require('fs');
+const IOs = {};
+
+(function initializeIOs(){
+    for(record in IOStore){
+        IOs[record.nameSpace] = io.of(`/${record.nameSpace}`);
+    }
+})();
 
 exports.get = nameSpace =>{
 
@@ -418,7 +426,7 @@ exports.create = nameSpace => {
     .then(()=> pool.myExecute(`CREATE TABLE IF NOT EXISTS ${nameSpaceRESCs} (room INTEGER NOT NULL, user INTEGER NOT NULL, record INTEGER NOT NULL, insertedAt DATETIME NOT NULL, FOREIGN KEY (user) REFERENCES ${nameSpaceUsers}(id) ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY (room) REFERENCES ${nameSpaceRRCs}(id) ON DELETE CASCADE ON UPDATE CASCADE, FOREIGN KEY (record) REFERENCES ${nameSpaceERCs} (id) ON DELETE CASCADE ON UPDATE CASCADE, UNIQUE(room,record,user)) ENGINE=InnoDB;`))
     .then(()=> garbageCollector.init(nameSpace))
     .then(()=>{
-        IOs[nameSpace] = io.of(`/${nameSpace}`);
+        return store(nameSpace);
     })
 }
 
@@ -430,4 +438,11 @@ exports.drop = nameSpace=>{
     const nameSpaceUsers = `T${nameSpace}Users`;
     const nameSpaceRESCs = `T${nameSpace}RESCs`;
     return pool.myExecute(`DROP TABLE ${nameSpaceUsers}, ${nameSpaceRSCs}, ${nameSpaceRRCs}, ${nameSpaceESCs}, ${nameSpaceERCs}, ${nameSpaceRESCs};`)
+}
+
+async function store(nameSpace,callback){
+    IOs[nameSpace] = io.of(`/${nameSpace}`);
+    IOStore.push({"nameSpace" : nameSpace});
+    const output = JSON.stringify(IOStore);
+    fs.writeFileSync('../temp/nameSpaces.json',output);
 }
