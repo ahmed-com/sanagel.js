@@ -2,7 +2,18 @@ const pool = require(`../utils/db`);
 const io = require(`../utils/socket`).getIO();
 const client = require(`../utils/redis`).getClient();
 const moment = require(`moment`);
-const IOs = {};// this is only temporary
+const IOStore = require('../temp/nameSpaces.json');
+
+const fs = require('fs');
+const path = require('path');
+
+const IOs = {};
+
+(function initializeIOs(){
+    IOStore.forEach(record=>{
+        IOs[record.nameSpace] = io.of(`/${record.nameSpace}`);
+    });
+})();
 
 exports.get = nameSpace =>{
 
@@ -67,14 +78,16 @@ exports.get = nameSpace =>{
             const query = `SELECT id, userName FROM ${nameSpaceUsers} WHERE id = :userId LIMIT 1;`;
             return pool.userRead(nameSpace,userId,query,{
                 userId
-            }).then(result=>result[0]);
+            })
+            .then(result=>result[0]);
         }
 
         static getUserByMail(mail){
             const query = `SELECT id, hashedPW, data, userName, mail, createdAt, updatedAt FROM ${nameSpaceUsers} WHERE mail = :mail LIMIT 1;`;
             return pool.myExecute(query,{
                 mail
-            }).then(result=>result[0]);
+            })
+            .then(result=>result[0]);
         }
 
         static getSocketId = userId =>{
@@ -123,7 +136,7 @@ exports.get = nameSpace =>{
         }
 
         static isValidSocketId(socketId){
-            return Object.keys(IO.connected).includes(socketId);
+            return Object.keys(IO.connected).includes(socketId);// this defenitly needs some improvement.
         }
 
         static getRoomsByUser(userId){// might be a bit misleading
@@ -149,6 +162,7 @@ exports.get = nameSpace =>{
                 relation,
                 status
             })
+            .then(result => Object.values(result[0])[0]);
         }
 
         getAccessLevel(userId){
@@ -187,7 +201,10 @@ exports.get = nameSpace =>{
             return pool.roomRead(nameSpace,room,query,{
                 recordId,
                 userId
-            }).then(result=>result[0].relation);
+            })
+            .then(result=>{
+                return result[0] ? result[0].relation : false;
+            });
         }
 
         createRecord(data,userId){
@@ -214,7 +231,7 @@ exports.get = nameSpace =>{
 
         isHost(recordId,userId){
             const room = this.id;
-            const query = `SSELECT EXISTS( SELECT record FROM ${nameSpaceRESCs} WHERE room = :room AND record = :recordId AND user = :userId LIMIT 1 );`;
+            const query = `SELECT EXISTS( SELECT record FROM ${nameSpaceRESCs} WHERE room = :room AND record = :recordId AND user = :userId LIMIT 1 );`;
             return pool.roomRead(nameSpace,room,query,{
                 room,
                 recordId,
@@ -262,9 +279,9 @@ exports.get = nameSpace =>{
             const query = `SELECT ${nameSpaceERCs}.id, ${nameSpaceERCs}.data, ${nameSpaceERCs}.createdAt, ${nameSpaceERCs}.updatedAt, ${nameSpaceERCs}.author, ${nameSpaceRESCs}.room AS room FROM ${nameSpaceERCs} INNER JOIN ${nameSpaceRESCs} ON ${nameSpaceERCs}.id = ${nameSpaceRESCs}.record WHERE ${nameSpaceRESCs}.room = :room AND ${nameSpaceERCs}.id = :recordId LIMIT 1 ;`
             return pool.roomRead(nameSpace,room,query,{
                 room,
-
                 recordId
-            }).then(result=>result[0]);
+            })
+            .then(result=>result[0]);
         }
 
         getRecordsByRoom(){
@@ -366,10 +383,11 @@ exports.get = nameSpace =>{
 
         getData(){
             const room = this.id;
-            const query = `SELECT * FROM ${nameSpaceRRCs} WHERE id = :room LIMIT 1;`;
+            const query = `SELECT *,COUNT(*) AS subscribersCount FROM ${nameSpaceRRCs} WHERE id = :room LIMIT 1;`;
             return pool.roomRead(nameSpace,room,query,{
                 room
-            }).then(result=>result[0]);
+            })
+            .then(result=>result[0]);
         }
 
         exists(){
@@ -377,15 +395,8 @@ exports.get = nameSpace =>{
             const query = `SELECT EXISTS( SELECT id FROM ${nameSpaceRRCs} WHERE id = :room LIMIT 1 )`;
             return pool.roomRead(nameSpace,room,query,{
                 room
-            }).then(result => Object.values(result[0])[0]);
-        }
-
-        getSubscribersCount(){
-            const room = this.id;
-            const query = `SELECT COUNT(*) AS counter FROM ${nameSpaceRSCs} WHERE room = :room ;`;
-            return pool.roomRead(nameSpace,room,query,{
-                room
             })
+            .then(result => Object.values(result[0])[0]);
         }
 
         static createUser(userName,mail,hashedPW,data){
@@ -398,8 +409,6 @@ exports.get = nameSpace =>{
                 now : moment(Date.now()).format(`YYYY-MM-DD HH:mm:ss`)
             });
         }
-
-        
     }
     return Publisher;
 }
@@ -421,6 +430,7 @@ exports.create = nameSpace => {
     .then(()=> garbageCollector.init(nameSpace))
     .then(()=>{
         IOs[nameSpace] = io.of(`/${nameSpace}`);
+        store(nameSpace,console.log);
     })
 }
 
@@ -432,4 +442,10 @@ exports.drop = nameSpace=>{
     const nameSpaceUsers = `T${nameSpace}Users`;
     const nameSpaceRESCs = `T${nameSpace}RESCs`;
     return pool.myExecute(`DROP TABLE ${nameSpaceUsers}, ${nameSpaceRSCs}, ${nameSpaceRRCs}, ${nameSpaceESCs}, ${nameSpaceERCs}, ${nameSpaceRESCs};`)
+}
+
+function store(nameSpace,callback){
+    IOStore.push({"nameSpace" : nameSpace});
+    const output = JSON.stringify(IOStore);
+    fs.writeFile(path.join(__dirname,'../temp/nameSpaces.json'),output,callback);
 }

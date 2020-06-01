@@ -4,6 +4,6 @@ exports.init = nameSpace=>{
     const nameSpaceERCs = `T${nameSpace}ERCs`;
     const nameSpaceRESCs = `T${nameSpace}RESCs`;
     setInterval(()=>{
-        pool.myExecute(`DELETE ${nameSpaceERCs} FROM ${nameSpaceERCs} LEFT JOIN ${nameSpaceRESCs} ON ${nameSpaceERCs}.id = ${nameSpaceRESCs}.record WHERE ${nameSpaceRESCs}.room = :room`,{room : null});
+        pool.myExecute(`DELETE ${nameSpaceERCs} FROM ${nameSpaceERCs} LEFT JOIN ${nameSpaceRESCs} ON ${nameSpaceERCs}.id = ${nameSpaceRESCs}.record WHERE ${nameSpaceRESCs}.room IS NULL`);
     },3600000)//every hour
 }
