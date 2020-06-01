@@ -10,9 +10,9 @@ const path = require('path');
 const IOs = {};
 
 (function initializeIOs(){
-    for(record in IOStore){
+    IOStore.forEach(record=>{
         IOs[record.nameSpace] = io.of(`/${record.nameSpace}`);
-    }
+    });
 })();
 
 exports.get = nameSpace =>{
