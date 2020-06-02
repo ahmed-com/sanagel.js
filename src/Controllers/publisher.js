@@ -125,7 +125,7 @@ exports.leave =async (req,res,next)=>{
         res.status(200).json({
             message : 'Left successfully',                
         });
-        const rooms =await  Publisher.getRooms(userId);
+        const rooms =await  Publisher.getRoomsByUser(userId);
         const user = await Publisher.getUserPublic(userId);
         rooms.forEach(room => {
             room.leave(socketId);
