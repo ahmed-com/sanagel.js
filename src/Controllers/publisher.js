@@ -43,7 +43,7 @@ exports.createNestedRoom = async (req,res,next)=>{
             throw403('Unauthorized Action');
         }
         if(!canWrite(accessLevel)) throw403('Unauthorized Action');
-        const insertId = await Publisher.createNestedRoom(userId,data);
+        const insertId = await publisher.createNestedRoom(userId,data);
         const nestedRoom = {
             id :insertId,
             parent : room,
