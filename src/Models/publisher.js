@@ -409,6 +409,15 @@ exports.get = nameSpace =>{
                 now : moment(Date.now()).format(`YYYY-MM-DD HH:mm:ss`)
             });
         }
+
+        static updateUser(userId,data){
+            const query = `UPDATE ${nameSpaceUsers} SET data=:data,updatedAt=:now WHERE id = :userId ;`;
+            return pool.myExecute(query,{
+                data ,
+                userId,
+                now :  moment(Date.now()).format(`YYYY-MM-DD HH:mm:ss`)
+            });
+        }
     }
     return Publisher;
 }

@@ -1,4 +1,5 @@
 const router = require('express').Router();
+const is_auth = require('../middlewares/is-auth');
 const { check } = require('express-validator');
 const auth = require('../Controllers/auth');
 const validate = require('../middlewares/validate');
@@ -36,5 +37,7 @@ router.post('/signin',[
         .isLength({min : 5, max : 14})
         .withMessage('Please enter a valid password.')
 ],validate,auth.signIn);
+
+router.put('/update',is_auth,auth.updateUser);
 
 module.exports = router;

@@ -52,3 +52,18 @@ exports.signIn =async (req,res,next)=>{
         return;
     }
 }
+
+exports.updateUser = async (req,res,next)=>{
+    try{
+        const Publisher = req.Publisher;
+        const userId = req.userId;
+        const data = req.body.data;
+        await Publisher.updateUser(userId,data);
+        res.status(202).json({
+            message : 'Updated successfully'
+        })
+    }catch(err){
+        next(err);
+        return;
+    }
+}
