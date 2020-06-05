@@ -13,14 +13,18 @@ exports.signUp =async (req,res,next)=>{
         if(user) throw422('E-Mail address already exists');
         const hashedPW = await bcrypt.hash(password,12);
         const result = await Publisher.createUser(userName,mail,hashedPW,data);
+        const userId = result.insertId;
+        const nameSpace = Publisher.getName();
+        const token = jwt.sign({nameSpace,userId},process.env.PRIVATEKEY,{expiresIn : '7d'});
         res.status(201).json({
             message : 'Created successfully',
             user : {
-                id : result.insertId,
+                id : userId,
                 userName,
                 mail,
                 data
-            }
+            },
+            token
         });
         return;
     }catch(err){
