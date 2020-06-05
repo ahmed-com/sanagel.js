@@ -88,12 +88,12 @@ router.post('/records/unseen/',is_auth,publisher.getUnseenRecords);
 
 router.post('/records/user/',is_auth,publisher.getUserRecords);
 
-router.post('/record/',is_auth,[
-    check('room')
-    .isInt({gt:0}),
-    check('recordId')
-    .isInt({gt:0})
-],validate,publisher.getRecord);
+// router.post('/record/',is_auth,[
+//     check('room')
+//     .isInt({gt:0}),
+//     check('recordId')
+//     .isInt({gt:0})
+// ],validate,publisher.getRecord);
 
 router.put('/record/',is_auth,[
     check('room')
