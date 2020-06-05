@@ -44,7 +44,7 @@ exports.signIn =async (req,res,next)=>{
         res.status(200).json({
             message : "The Token Requested",
             token,
-            userId
+            user
         });
         return;
     }catch(err){
