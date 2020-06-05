@@ -69,7 +69,7 @@ router.delete('/remove/',is_auth,[
     .isInt({gt:0})
 ],validate,publisher.remove);
 
-router.get('/subscribers',is_auth,[
+router.post('/subscribers',is_auth,[
     check('room')
     .isInt({gt:0})
 ],validate,publisher.getSubscribers);
@@ -79,16 +79,16 @@ router.delete('/room/',is_auth,[
     .isInt({gt:0})
 ],validate,publisher.deleteRoom);
 
-router.get('/records/',is_auth,[
+router.post('/records/',is_auth,[
     check('room')
     .isInt({gt:0})
 ],validate,publisher.getAllRecords);
 
-router.get('/records/unseen/',is_auth,publisher.getUnseenRecords);
+router.post('/records/unseen/',is_auth,publisher.getUnseenRecords);
 
-router.get('/records/user/',is_auth,publisher.getUserRecords);
+router.post('/records/user/',is_auth,publisher.getUserRecords);
 
-router.get('/record/',is_auth,[
+router.post('/record/',is_auth,[
     check('room')
     .isInt({gt:0}),
     check('recordId')
@@ -147,7 +147,7 @@ router.put('/recordStatus/',is_auth,[
     .isInt({gt:0})
 ],validate,publisher.seenCheck);
 
-router.get('/rooms/',is_auth,[
+router.post('/rooms/',is_auth,[
     check('room')
     .isInt({gt:0})
 ],validate,publisher.getNestedRooms);
